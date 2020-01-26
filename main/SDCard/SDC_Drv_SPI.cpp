@@ -1,6 +1,10 @@
-#include "sdcard/SDC_Drv_SPI.hpp"
+#include "SDC_Drv_SPI.hpp"
 
-static constexpr uint32_t sk_SPI_Timeout = 1000;
+#include <limits>
+#include <cstring>
+#include "driver/gpio.h"
+
+static constexpr int sk_SPI_Timeout_Ms = 1000;
 
 SDC_Drv_SPI::SDC_Drv_SPI()
 {}
@@ -10,7 +14,7 @@ SDC_Drv_SPI::~SDC_Drv_SPI()
 
 bool SDC_Drv_SPI::Select()
 {
-    HAL_GPIO_WritePin( GPIOA, SDCARD_CS_Pin, GPIO_PIN_RESET );
+    gpio_set_level( sk_CS_IONum, 0 );
 
 	uint8_t tmp = 0xFF;
     if( !send( &tmp, 1 ) ){
@@ -26,7 +30,7 @@ bool SDC_Drv_SPI::Select()
 
 void SDC_Drv_SPI::Release()
 {
-    HAL_GPIO_WritePin( GPIOA, SDCARD_CS_Pin, GPIO_PIN_SET );
+    gpio_set_level( sk_CS_IONum, 1 );
 
     // MMC/SDC の場合は SCLKに同期して DO信号の解放が行われる。
     // DO信号を確実に解放するために、1byte分クロックを送っておく。
@@ -36,29 +40,64 @@ void SDC_Drv_SPI::Release()
 
 bool SDC_Drv_SPI::send( const uint8_t* data, uint32_t len )
 {
-    HAL_StatusTypeDef status = HAL_SPI_Transmit( &hspi1, const_cast<uint8_t*>(data), static_cast<uint16_t>(len), sk_SPI_Timeout );
-    return status == HAL_OK;
+	static spi_transaction_t trans;
+	esp_err_t ret;
+
+	// 送信できる最大長より長いサイズは送れない
+	if( len > std::numeric_limits<uint32_t>::max() / 8 ){
+		return false;
+	}
+	if( data == nullptr ){
+		return false;
+	}
+	
+	memset( &trans, 0, sizeof(spi_transaction_t) );
+	trans.length    = len * 8;
+	trans.tx_buffer = data;				// bit で指定
+	ret = spi_device_transmit( m_SPIHandle, &trans );
+
+	return ret == ESP_OK;
 }
 
 bool SDC_Drv_SPI::recv( uint8_t* data, uint32_t len )
 {
-	// HAL_SPI_Receive 関数では、0x00を送信してしまうため正常にコマンド送信ができない。
-	// 受信時も0xFFを送信するように HAL_SPI_TransmitReceive を使う。
+	static spi_transaction_t trans;
+
+	// 送信できる最大長より長いサイズは送れない
+	if( len > std::numeric_limits<uint32_t>::max() / 8 ){
+		return false;
+	}
+	if( data == nullptr ){
+		return false;
+	}
+
+	// 受信時も 0xFF を送信するようにする。
+	// そうでないとSDカードが正しくコマンドのレスポンスを返してくれない。
 	constexpr int k_TxBufSize = 16;
 	uint8_t txbuf[k_TxBufSize] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
 								  0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
 	uint32_t remain_len = len;
 	uint8_t* dstp = data;
 
+	memset( &trans, 0, sizeof(spi_transaction_t) );
+
 	while( remain_len >= k_TxBufSize ){
-		if( HAL_SPI_TransmitReceive( &hspi1, txbuf, dstp, k_TxBufSize, sk_SPI_Timeout ) != HAL_OK ){
+		trans.length    = k_TxBufSize * 8;
+		trans.rxlength  = k_TxBufSize * 8;
+		trans.tx_buffer = txbuf;
+		trans.rx_buffer = dstp;
+		if( spi_device_transmit( m_SPIHandle, &trans ) != ESP_OK ){
 			return false;
 		}
 		remain_len -= k_TxBufSize;
 		dstp += 16;
 	}
 	if( remain_len > 0 ){
-		if( HAL_SPI_TransmitReceive( &hspi1, txbuf, dstp, static_cast<uint16_t>(remain_len), sk_SPI_Timeout ) != HAL_OK ){ 
+		trans.length    = remain_len * 8;
+		trans.rxlength  = remain_len * 8;
+		trans.tx_buffer = txbuf;
+		trans.rx_buffer = dstp;
+		if( spi_device_transmit( m_SPIHandle, &trans ) != ESP_OK ){
 			return false;
 		}
 	}
@@ -76,21 +115,19 @@ void SDC_Drv_SPI::Initialize( uint32_t clockspeed_hz )
 {
     esp_err_t ret;
     spi_device_handle_t spi;
-    spi_bus_config_t buscfg = {
-        .miso_io_num = sk_MISO_IONum,
-        .mosi_io_num = sk_MOSI_IONum,
-        .sclk_io_num = sk_SCLK_IONum,
-        .quadwp_io_num = -1,
-        .quadhd_io_num = -1,
-        .max_transfer_sz = sk_MaxTransferSize;
-    };
+    spi_bus_config_t buscfg;
+    buscfg.miso_io_num = sk_MISO_IONum;
+    buscfg.mosi_io_num = sk_MOSI_IONum;
+    buscfg.sclk_io_num = sk_SCLK_IONum;
+    buscfg.quadwp_io_num = -1;
+    buscfg.quadhd_io_num = -1;
+    buscfg.max_transfer_sz = sk_MaxTransferSize;
 
-	spi_device_interface_config_t devcfg = {
-        .clock_speed_hz = clockspeed,           //Clock out at 26 MHz
-        .mode = 0,                              //SPI mode 0
-        .spics_io_num = -1,                     //CS pin
-        .queue_size = 4,                        //We want to be able to queue 7 transactions at a time
-    };
+	spi_device_interface_config_t devcfg;
+    devcfg.clock_speed_hz = clockspeed_hz;        //Clock out at 26 MHz
+    devcfg.mode = 0;                              //SPI mode 0
+    devcfg.spics_io_num = -1;                     //CS pin
+    devcfg.queue_size = 4;                        //We want to be able to queue 7 transactions at a time
 
 	ret = spi_bus_initialize( HSPI_HOST, &buscfg, sk_DMAChannel );
 	ESP_ERROR_CHECK( ret );
@@ -104,17 +141,35 @@ void SDC_Drv_SPI::Initialize( uint32_t clockspeed_hz )
 bool SDC_Drv_SPI::waitReady()
 {
 	uint8_t tmp = 0;
-	MsTimer timer;
+	int64_t time = esp_timer_get_time();
 
 	while(1){	
 		recv( &tmp, 1 );
 		if( tmp == 0xFF ){
 			break;
 		}
-		if( timer.IsElapsed( sk_SPI_Timeout ) ){
+		int64_t nowtime = esp_timer_get_time();
+		if( nowtime - time > sk_SPI_Timeout_Ms ){
 			break;
 		}
 	}
 
 	return tmp == 0xFF;
+}
+
+void SDC_Drv_SPI::initialize_CS()
+{
+	gpio_config_t io_conf;
+    //disable interrupt
+    io_conf.intr_type = static_cast<gpio_int_type_t>(GPIO_PIN_INTR_DISABLE);
+    //set as output mode
+    io_conf.mode = GPIO_MODE_OUTPUT;
+    //bit mask of the pins that you want to set
+    io_conf.pin_bit_mask = (1ULL << sk_CS_IONum);
+    //disable pull-down mode
+    io_conf.pull_down_en = static_cast<gpio_pulldown_t>(0);
+    //disable pull-up mode
+    io_conf.pull_up_en = static_cast<gpio_pullup_t>(0);
+    //configure GPIO with the given settings
+    gpio_config(&io_conf);
 }

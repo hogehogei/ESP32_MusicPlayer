@@ -1,7 +1,6 @@
-#include "stm32f0xx_hal.h"
-#include "main.h"
-#include "sdcard/SD_Card.hpp"
-#include "UARTOut.hpp"
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+#include "SD_Card.hpp"
 #include <limits>
 #include <algorithm>
 
@@ -94,7 +93,9 @@ bool SD_Card::Initialize( I_SDC_Drv_SPI* driver )
     // DIはハードでプルアップしているので処理なし
 
     // 1ms以上待つ
-    HAL_Delay( 10 );
+    // HAL_Delay( 10 );
+    const TickType_t xDelayMs = 10 / portTICK_PERIOD_MS;
+    vTaskDelay( xDelayMs );
 
     for( int i = 0; i < sk_SDC_InitSCLK; ++i ){
         // SPI 初期化クロック送信
@@ -491,7 +492,9 @@ uint8_t SD_Card::sendCmdRetry( uint8_t cmd, uint32_t arg, uint16_t retry_cnt )
            break;
         }
 
-        HAL_Delay( 1 );		// 1ms待つ
+        //HAL_Delay( 1 );		// 1ms待つ
+        const TickType_t xDelayMs = 10 / portTICK_PERIOD_MS;
+        vTaskDelay( xDelayMs );
     }
 
     return res;

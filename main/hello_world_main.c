@@ -12,7 +12,16 @@
 #include "esp_system.h"
 #include "esp_spi_flash.h"
 
-extern void HttpSampleMain( void );
+//
+// static functions
+//
+static void InvokeMainTask( void );
+
+//
+// static variables
+//
+static constexpr int sk_MusicTaskStackSize = 1024 * 8;
+static xTaskHandle s_MusicTaskHandle;
 
 void app_main()
 {
@@ -31,9 +40,15 @@ void app_main()
     printf("%dMB %s flash\n", spi_flash_get_chip_size() / (1024 * 1024),
             (chip_info.features & CHIP_FEATURE_EMB_FLASH) ? "embedded" : "external");
 
-    HttpSampleMain();
+    // メインループ
+    InvokeMainTask();
 
     printf("Restarting now.\n");
     fflush(stdout);
     esp_restart();
+}
+
+static void InvokeMainTask( void )
+{
+    xTaskCreate( MusicTask, "MusicTask", sk_MusicTaskStackSize, NULL, sk_AppTaskPriority, &s_MusicTaskHandle );
 }

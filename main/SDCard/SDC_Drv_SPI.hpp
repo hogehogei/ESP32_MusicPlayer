@@ -2,7 +2,8 @@
 #ifndef SDC_DRV_SPI_HPP
 #define SDC_DRV_SPI_HPP
 
-#include "sdcard/I_SDC_Drv_SPI.hpp"
+#include "I_SDC_Drv_SPI.hpp"
+#include "driver/gpio.h"
 #include "driver/spi_master.h"
 
 class SDC_Drv_SPI : public I_SDC_Drv_SPI
@@ -69,6 +70,7 @@ private:
     static constexpr int sk_MISO_IONum = 12;
     static constexpr int sk_MOSI_IONum = 13;
     static constexpr int sk_SCLK_IONum = 14;
+    static constexpr gpio_num_t sk_CS_IONum = GPIO_NUM_15;
     static constexpr int sk_MaxTransferSize = 1024;
     static constexpr int sk_DMAChannel = 2;
 
@@ -82,8 +84,8 @@ private:
      **/
     virtual ~SDC_Drv_SPI() noexcept;
 
+    static void initialize_CS();
     bool waitReady();
-    void initialize_CS();
 
     spi_device_handle_t m_SPIHandle;             //!  ESP32 SPIハンドル
 };
