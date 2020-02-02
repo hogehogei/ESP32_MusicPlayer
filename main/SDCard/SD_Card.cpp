@@ -38,7 +38,7 @@ static constexpr uint8_t sk_SDC_Type_SD1    = (1 << 0);             //! SDカー
 static constexpr uint8_t sk_SDC_Type_SD2    = (1 << 1);             //! SDカード = SDv2
 static constexpr uint8_t sk_SDC_Type_MMC    = (1 << 2);             //! SDカード = MMC
 static constexpr uint8_t sk_SDC_Block       = (1 << 3);             //! ブロックアクセス     1の場合はコマンドのアドレス指定はsector単位を用いる。
-                                                                    //!                    0の場合はコマンドのアドレス指定はbyte単位。
+                                                                    //!                     0の場合はコマンドのアドレス指定はbyte単位。
 
 // read() / write() 関数の引数 sector を byte に変換するときに
 // sector がとりうることのできる最大値
@@ -88,12 +88,13 @@ bool SD_Card::Initialize( I_SDC_Drv_SPI* driver )
     }
     m_SDC_Drv = driver;
 
+    // SDカードドライバ初期化
+    m_SDC_Drv->Initialize( sk_ClockSpeedHz_Initializing );
     // CSをHレベルに設定
     m_SDC_Drv->Release();
     // DIはハードでプルアップしているので処理なし
 
     // 1ms以上待つ
-    // HAL_Delay( 10 );
     const TickType_t xDelayMs = 10 / portTICK_PERIOD_MS;
     vTaskDelay( xDelayMs );
 
@@ -120,6 +121,8 @@ bool SD_Card::Initialize( I_SDC_Drv_SPI* driver )
 
     // 初期化終了
     m_SDC_Drv->Release();
+    // SPIの速度再設定
+    m_SDC_Drv->Initialize( sk_ClockSpeedHz_AccessSD );
     
     if( type == sk_SDC_Type_None ){
         m_SDC_State = false;
@@ -325,7 +328,7 @@ bool SD_Card::WriteFinalize()
 
     m_SDC_Drv->Select();
     // 現在セクタの残りスペースを0埋めする
-    zeroWrite( m_W_Progress.remain_bytes_cursec );
+    sendAnyData( m_W_Progress.remain_bytes_cursec );
     // StopTransToken 送信後、1byte読み飛ばして ビジー解除まで待つ
     m_SDC_Drv->send( &stoptrans, 1 );
     ignoreRead( 1 );
@@ -586,7 +589,7 @@ bool SD_Card::nextSectorWritePreparation()
     uint8_t resp = 0;
 
     // CRC 2byte分送信
-    zeroWrite( 2 );
+    sendAnyData( 2 );
     // データレスポンス受信
     m_SDC_Drv->recv( &resp, 1 );
 
@@ -647,17 +650,11 @@ void SD_Card::ignoreRead( uint32_t cnt )
 }
 
 /**
- * @brief   0書き込み
+ * @brief   適当なデータを送信する
  * @param [in]  cnt     書き込み個数
  **/
-void SD_Card::zeroWrite( uint32_t cnt )
+void SD_Card::sendAnyData( uint32_t cnt )
 {
-    uint8_t buf[32];
-    uint32_t len = cnt;
-
-    while( len > 0 ){
-        uint32_t c = std::min( len, static_cast<uint32_t>(sizeof(buf)) );
-        m_SDC_Drv->recv( buf, c );
-        len -= c;
-    }
+    // 読み飛ばせれば何でもよい
+    ignoreRead( cnt );
 }

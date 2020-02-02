@@ -20,7 +20,8 @@
 
 
 BluetoothAudio::BluetoothAudio()
-    : m_RingBuffer( sk_AudioBufferSize )
+    : m_IsInitialized( false ),
+      m_RingBuffer( sk_AudioBufferSize )
 {}
 
 BluetoothAudio::~BluetoothAudio()
@@ -28,6 +29,10 @@ BluetoothAudio::~BluetoothAudio()
 
 void BluetoothAudio::Initialize()
 {
+    if( m_IsInitialized ){
+        return;
+    }
+
     esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
 	if (esp_bt_controller_init(&bt_cfg) != ESP_OK) {
 		ESP_LOGE(LogTagName::sk_BT_AV, "%s initialize controller failed\n", __func__);
@@ -54,12 +59,14 @@ void BluetoothAudio::Initialize()
 
 	/* Bluetooth device name, connection mode and profile set up */
     startBT_AVProtocols();
+
+    m_IsInitialized = true;
 }
 
- BluetoothAudio* BluetoothAudio::Instance()
+ BluetoothAudio& BluetoothAudio::Instance()
  {
      static BluetoothAudio s_BT_Instance;
-     return &s_BT_Instance;
+     return s_BT_Instance;
  }
 
 uint32_t BluetoothAudio::RemainDataCount() const
@@ -101,9 +108,9 @@ void BluetoothAudio::startBT_AVProtocols()
 void BluetoothAudio::BT_AppTask( void* param )
 {
     I_BTAppEventWorker* worker = nullptr;
-    BluetoothAudio* instance = BluetoothAudio::Instance();
+    BluetoothAudio& instance = BluetoothAudio::Instance();
     for (;;) {
-        if( xQueueReceive( instance->m_BT_AppTaskQueue, &worker, (portTickType)portMAX_DELAY ) == pdTRUE ){
+        if( xQueueReceive( instance.m_BT_AppTaskQueue, &worker, (portTickType)portMAX_DELAY ) == pdTRUE ){
             if( worker ){
                 worker->Invoke();
             }
@@ -119,8 +126,8 @@ bool BluetoothAudio::BT_QueueAppWorker( I_BTAppEventWorker* worker )
         return false;
     }
 
-    BluetoothAudio* instance = BluetoothAudio::Instance();
-    if ( xQueueSend( instance->m_BT_AppTaskQueue, worker, 10 / portTICK_RATE_MS) != pdTRUE ) {
+    BluetoothAudio& instance = BluetoothAudio::Instance();
+    if ( xQueueSend( instance.m_BT_AppTaskQueue, worker, 10 / portTICK_RATE_MS) != pdTRUE ) {
         ESP_LOGE(LogTagName::sk_BT_APPCORE, "%s xQueue send failed", __func__);
         return false;
     }
@@ -147,8 +154,8 @@ void BluetoothAudio::BT_A2D_Callback( esp_a2d_cb_event_t event, esp_a2d_cb_param
 
 void BluetoothAudio::BT_A2D_DataCallback( const uint8_t *data, uint32_t len )
 {
-    BluetoothAudio* instance = BluetoothAudio::Instance();
-    instance->m_RingBuffer.Send( data, len );
+    BluetoothAudio& instance = BluetoothAudio::Instance();
+    instance.m_RingBuffer.Send( data, len );
 }
 
 void BluetoothAudio::BT_AVRC_TargetCallback( esp_avrc_tg_cb_event_t event, esp_avrc_tg_cb_param_t *param )

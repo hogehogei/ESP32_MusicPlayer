@@ -35,6 +35,14 @@ public:
 
 private:
 
+    enum PassThruCmdEventState
+    {
+        KeyStatePressed  = 0,
+        KeyStateReleased = 1,
+    };  
+
+    void receivePassThruCmd( uint8_t cmd_code, uint8_t state );
+
     esp_avrc_tg_cb_event_t  m_Event;
     esp_avrc_tg_cb_param_t* m_Param;
 };

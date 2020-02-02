@@ -1,10 +1,9 @@
+#ifndef     AUDIO_DRV_OUT_INCLUDED
+#define     AUDIO_DRV_OUT_INCLUDED
 
+#include <cstdint>
 
-#ifndef     AUDIO_DRV_OUT_DEFINED
-#define     AUDIO_DRV_OUT_DEFINED
-
-#include "VS1053.hpp"
-
+class I_AudioSource;
 class AudioDrvOut
 {
 public:
@@ -25,8 +24,6 @@ private:
     bool m_IsGood;
     uint8_t m_VolumeRight;
     uint8_t m_VolumeLeft;
-    
-    VS1053_Drv      m_MusicDriver;
 };
 
-#endif      // AUDIO_DRV_OUT_DEFINED
+#endif      // AUDIO_DRV_OUT_INCLUDED

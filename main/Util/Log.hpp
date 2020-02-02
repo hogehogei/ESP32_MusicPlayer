@@ -1,13 +1,13 @@
 
-#ifndef    LOG_HPP
-#define    LOG_HPP
+#ifndef    LOG_HPP_INCLUDED
+#define    LOG_HPP_INCLUDED
 
 struct LogTagName 
 {
-    static constexpr char sk_BT_AV[] = "BT_AV";
-    static constexpr char sk_BT_A2DP[] = "BT_A2DP";
-    static constexpr char sk_BT_AVRCP[] = "BT_AVRCP";
-    static constexpr char sk_BT_APPCORE[] = "BT_APPCORE";
+    static inline constexpr char sk_BT_AV[] = "BT_AV";
+    static inline constexpr char sk_BT_A2DP[] = "BT_A2DP";
+    static inline constexpr char sk_BT_AVRCP[] = "BT_AVRCP";
+    static inline constexpr char sk_BT_APPCORE[] = "BT_APPCORE";
 };
 
-#endif      // LOG_HPP
+#endif      // LOG_HPP_INCLUDED

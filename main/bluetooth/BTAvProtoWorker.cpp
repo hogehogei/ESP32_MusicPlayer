@@ -1,5 +1,6 @@
 
 #include "BTAvProtoWorker.hpp"
+#include "BluetoothInput.hpp"
 #include "Log.hpp"
 
 // esp headers
@@ -107,6 +108,7 @@ bool BT_AVRCPTarget_Worker::Invoke()
     }
     case ESP_AVRC_TG_PASSTHROUGH_CMD_EVT: {
         ESP_LOGI(LogTagName::sk_BT_AVRCP, "AVRC passthrough cmd: key_code 0x%x, key_state %d", rc->psth_cmd.key_code, rc->psth_cmd.key_state);
+        receivePassThruCmd( rc->psth_cmd.key_code, rc->psth_cmd.key_state );
         break;
     }
     case ESP_AVRC_TG_SET_ABSOLUTE_VOLUME_CMD_EVT: {
@@ -135,4 +137,25 @@ bool BT_AVRCPTarget_Worker::Invoke()
     }
 
     return true;
+}
+
+void BT_AVRCPTarget_Worker::receivePassThruCmd( uint8_t cmd_code, uint8_t state )
+{
+    if( state != PassThruCmdEventState::KeyStatePressed ){
+        return;
+    }
+
+    BluetoothInput& instance = BluetoothInput::Instance();
+
+    switch( cmd_code ){
+    case ESP_AVRC_PT_CMD_PLAY:
+        instance.PlayKeyPressed();
+        break;
+    case ESP_AVRC_PT_CMD_STOP:
+        instance.StopKeyPressed();
+        break;
+    case ESP_AVRC_PT_CMD_PAUSE:
+        instance.PauseKeyPressed();
+        break;
+    }
 }

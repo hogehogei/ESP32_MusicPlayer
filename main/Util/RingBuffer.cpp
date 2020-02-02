@@ -35,7 +35,9 @@ uint32_t RingBuffer::Recv( uint8_t* dst, uint32_t len )
 {
     size_t   item_count = 0;
     uint32_t retrived_count = 0;
-    uint8_t* recv_data = xRingbufferReceiveUpTo( m_BufHandle, &item_count, pdMS_TO_TICKS(sk_QueueAccessTimeOutMs), len );
+    uint8_t* recv_data = reinterpret_cast<uint8_t*>( 
+        xRingbufferReceiveUpTo( m_BufHandle, &item_count, pdMS_TO_TICKS(sk_QueueAccessTimeOutMs), len ) 
+        );
 
     if( recv_data != NULL ){
         retrived_count = std::min( item_count, len );

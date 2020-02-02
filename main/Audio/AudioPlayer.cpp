@@ -1,10 +1,12 @@
 
 #include "AudioPlayer.hpp"
 #include "BluetoothAudioSource.hpp"
+#include "AudioDrvOut.hpp"
+#include "BluetoothInput.hpp"
 
 AudioPlayer::AudioPlayer( AudioSourceMode srcmode )
  : m_AudioSrc( nullptr ),
-   m_AudioOut( std::make_unique<AudioDriver>() ),
+   m_AudioOut( std::unique_ptr<AudioDrvOut>( new AudioDrvOut() ) ),
    m_IsPlaying( false )
 {
     m_AudioSrc = std::unique_ptr<I_AudioSource>( createAudioSource( srcmode ) );
@@ -15,34 +17,36 @@ AudioPlayer::~AudioPlayer()
 
 void AudioPlayer::Update()
 {
-    Input* action = Input::Instance();
+    BluetoothInput& input = BluetoothInput::Instance();
 
-    if( action->Stop() ){
+    if( input.IsStopKeyPressed() ){
         if( m_IsPlaying ){
             m_AudioOut->Stop();
             m_IsPlaying = false;
         }
     }
-    if( action->Pause() ){
+    if( input.IsPauseKeyPressed() ){
         if( m_IsPlaying ){
             m_IsPlaying = false;
         }
     }
-    if( action->Play() ){
+    if( input.IsPlayKeyPressed() ){
         if( !m_IsPlaying ){
-            m_AudioOut->Play();
+            m_AudioOut->Start();
             m_IsPlaying = true;
         }
     }
-    if( action->VolumeUp() ){
+#if 0
+    if( input->VolumeUp() ){
         m_AudioOut->VolumeUp();
     }
-    if( action->VolumeDown() ){
+    if( input->VolumeDown() ){
         m_AudioOut->VolumeDown();
     }
+#endif
 
-    if( m_IsPlaying && m_AudioOut->CanFeedData() ){
-        m_AudioOut->FeedAudioData( m_AudioSrc );
+    if( m_IsPlaying ){
+        m_AudioOut->FeedAudioData( m_AudioSrc.get() );
     }
 }
 

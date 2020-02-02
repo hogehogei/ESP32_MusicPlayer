@@ -7,10 +7,16 @@
    CONDITIONS OF ANY KIND, either express or implied.
 */
 #include <stdio.h>
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+
+//
+// esp-idf headers
+//
 #include "esp_system.h"
 #include "esp_spi_flash.h"
+
+#include "MainTask.hpp"
 
 //
 // static functions
@@ -20,7 +26,8 @@ static void InvokeMainTask( void );
 //
 // static variables
 //
-static constexpr int sk_MusicTaskStackSize = 1024 * 8;
+static const int sk_MusicTaskStackSize = 1024 * 8;
+static const int sk_AppTaskPriority    = configMAX_PRIORITIES - 3;
 static xTaskHandle s_MusicTaskHandle;
 
 void app_main()
@@ -51,4 +58,9 @@ void app_main()
 static void InvokeMainTask( void )
 {
     xTaskCreate( MusicTask, "MusicTask", sk_MusicTaskStackSize, NULL, sk_AppTaskPriority, &s_MusicTaskHandle );
+
+    volatile int endless_loop = 0;
+    while( 1 ) {
+        endless_loop++;
+    }
 }

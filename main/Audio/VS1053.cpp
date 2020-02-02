@@ -1,6 +1,8 @@
 
 #include "VS1053.hpp"
+
 #include <cstdint>
+#include <cstring>
 #include "Timer.hpp"
 
 static constexpr uint32_t sk_SPI_Send_Timeout = 1000;
@@ -20,58 +22,122 @@ VS1053_Drv_SPI& VS1053_Drv_SPI::Instance()
     return s_Driver;
 }
 
+void VS1053_Drv_SPI::Initialize()
+{
+    spi_bus_config_t buscfg = {};
+    buscfg.miso_io_num = sk_MISO_IONum;
+    buscfg.mosi_io_num = sk_MOSI_IONum;
+    buscfg.sclk_io_num = sk_SCLK_IONum;
+    buscfg.quadwp_io_num = -1;
+    buscfg.quadhd_io_num = -1;
+    buscfg.max_transfer_sz = sk_MaxTransferSize;
+
+	spi_device_interface_config_t devcfg = {};
+    devcfg.clock_speed_hz = sk_SPIClockSpeed_Hz;  //Clock out 
+    devcfg.mode = 0;                              //SPI mode 0
+    devcfg.spics_io_num = -1;                     //CS pin
+    devcfg.queue_size = 4;                        //We want to be able to queue 4 transactions at a time
+
+	ESP_ERROR_CHECK( spi_bus_initialize( VSPI_HOST, &buscfg, sk_DMAChannel ) );
+	ESP_ERROR_CHECK( spi_bus_add_device( VSPI_HOST, &devcfg, &m_SPIHandle ) );
+
+    // CS pin 初期化
+    initialize_CS( sk_CmdCS_IONum );
+	initialize_CS( sk_DataCS_IONum );
+    // DREQ pin 初期化
+    initialize_DReq( sk_DReq_IONum );
+    // Audio Reset pin 初期化
+    initialize_AudioReset( sk_AudioReset_IONum );
+}
+
 bool VS1053_Drv_SPI::CommandSelect()
 {
-    HAL_GPIO_WritePin(GPIOA, XCS_Pin, GPIO_PIN_RESET);
+    gpio_set_level( sk_CmdCS_IONum, 0 );
     return true;
 }
 
 void VS1053_Drv_SPI::CommandRelease()
 {
-    HAL_GPIO_WritePin(GPIOA, XCS_Pin, GPIO_PIN_SET);
+    gpio_set_level( sk_CmdCS_IONum, 1 );
 }
 
 bool VS1053_Drv_SPI::DataSelect()
 {
-    HAL_GPIO_WritePin(GPIOA, XDCS_Pin, GPIO_PIN_RESET);
+    gpio_set_level( sk_DataCS_IONum, 0 );
     return true;
 }
 
 void VS1053_Drv_SPI::DataRelease()
 {
-    HAL_GPIO_WritePin(GPIOA, XDCS_Pin, GPIO_PIN_SET);
+    gpio_set_level( sk_DataCS_IONum, 1 );
+}
+
+void VS1053_Drv_SPI::AssertReset()
+{
+    gpio_set_level( sk_AudioReset_IONum, 0 );
+}
+
+void VS1053_Drv_SPI::DeassertReset()
+{
+    gpio_set_level( sk_AudioReset_IONum, 1 );
 }
 
 bool VS1053_Drv_SPI::IsBusy() const
 {
-    return HAL_GPIO_ReadPin(GPIOA, DREQ_Pin) == GPIO_PIN_RESET;
+    return gpio_get_level( sk_DReq_IONum ) == 0;
 }
 
 bool VS1053_Drv_SPI::Send( const uint8_t* data, uint16_t len )
 {
-    HAL_StatusTypeDef status = HAL_SPI_Transmit( &hspi1, const_cast<uint8_t*>(data), static_cast<uint16_t>(len), sk_SPI_Send_Timeout );
-    return status == HAL_OK;
+	static spi_transaction_t trans;
+	esp_err_t ret;
+
+	if( data == nullptr ){
+		return false;
+	}
+	
+	memset( &trans, 0, sizeof(spi_transaction_t) );
+	trans.length    = len * 8;          // bit で指定
+	trans.tx_buffer = data;				
+	ret = spi_device_transmit( m_SPIHandle, &trans );
+
+	return ret == ESP_OK;
 }
 
 bool VS1053_Drv_SPI::Recv( uint8_t* data, uint16_t len )
 {
-	// HAL_SPI_Receive 関数では、0x00を送信してしまうため正常にコマンド送信ができない。
-	// 受信時も0xFFを送信するように HAL_SPI_TransmitReceive を使う。
+	static spi_transaction_t trans;
+
+	if( data == nullptr ){
+		return false;
+	}
+
+	// 受信時も 0xFF を送信するようにする。
 	constexpr int k_TxBufSize = 16;
 	uint8_t txbuf[k_TxBufSize] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
 								  0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
-	uint16_t remain_len = len;
+	uint32_t remain_len = len;
 	uint8_t* dstp = data;
 
+	memset( &trans, 0, sizeof(spi_transaction_t) );
+
 	while( remain_len >= k_TxBufSize ){
-		if( HAL_SPI_TransmitReceive( &hspi1, txbuf, dstp, k_TxBufSize, sk_SPI_Recv_Timeout ) != HAL_OK ){
+		trans.length    = k_TxBufSize * 8;
+		trans.rxlength  = k_TxBufSize * 8;
+		trans.tx_buffer = txbuf;
+		trans.rx_buffer = dstp;
+		if( spi_device_transmit( m_SPIHandle, &trans ) != ESP_OK ){
 			return false;
 		}
 		remain_len -= k_TxBufSize;
 		dstp += 16;
 	}
 	if( remain_len > 0 ){
-		if( HAL_SPI_TransmitReceive( &hspi1, txbuf, dstp, static_cast<uint16_t>(remain_len), sk_SPI_Recv_Timeout ) != HAL_OK ){ 
+		trans.length    = remain_len * 8;
+		trans.rxlength  = remain_len * 8;
+		trans.tx_buffer = txbuf;
+		trans.rx_buffer = dstp;
+		if( spi_device_transmit( m_SPIHandle, &trans ) != ESP_OK ){
 			return false;
 		}
 	}
@@ -81,22 +147,98 @@ bool VS1053_Drv_SPI::Recv( uint8_t* data, uint16_t len )
     
 bool VS1053_Drv_SPI::SendRecv( const uint8_t* senddata, uint8_t* recvdata, uint16_t recvlen )
 {
-    return HAL_SPI_TransmitReceive( &hspi1, const_cast<uint8_t*>(senddata), recvdata, recvlen, sk_SPI_Recv_Timeout ) == HAL_OK;
+	static spi_transaction_t trans;
+
+	if( senddata == nullptr || recvdata == nullptr ){
+		return false;
+	}
+
+	memset( &trans, 0, sizeof(spi_transaction_t) );
+	trans.length    = recvlen * 8;
+	trans.rxlength  = recvlen * 8;
+	trans.tx_buffer = senddata;
+	trans.rx_buffer = recvdata;
+
+    return spi_device_transmit( m_SPIHandle, &trans ) == ESP_OK;
+}
+
+void VS1053_Drv_SPI::initialize_CS( gpio_num_t ionum )
+{
+    gpio_config_t io_conf;
+    //disable interrupt
+    io_conf.intr_type = static_cast<gpio_int_type_t>(GPIO_PIN_INTR_DISABLE);
+    //set as output mode
+    io_conf.mode = GPIO_MODE_OUTPUT;
+    //bit mask of the pins that you want to set
+    io_conf.pin_bit_mask = (1ULL << ionum);
+    //disable pull-down mode
+    io_conf.pull_down_en = static_cast<gpio_pulldown_t>(0);
+    //disable pull-up mode
+    io_conf.pull_up_en = static_cast<gpio_pullup_t>(0);
+    //configure GPIO with the given settings
+    gpio_config(&io_conf);
+}
+
+void VS1053_Drv_SPI::initialize_DReq( gpio_num_t ionum )
+{
+    gpio_config_t io_conf;
+    //disable interrupt
+    io_conf.intr_type = static_cast<gpio_int_type_t>(GPIO_PIN_INTR_DISABLE);
+    //set as output mode
+    io_conf.mode = GPIO_MODE_INPUT;
+    //bit mask of the pins that you want to set
+    io_conf.pin_bit_mask = (1ULL << ionum);
+    //disable pull-down mode
+    io_conf.pull_down_en = static_cast<gpio_pulldown_t>(0);
+    //disable pull-up mode
+    io_conf.pull_up_en = static_cast<gpio_pullup_t>(0);
+    //configure GPIO with the given settings
+    gpio_config(&io_conf);
+}
+
+void VS1053_Drv_SPI::initialize_AudioReset( gpio_num_t ionum )
+{
+    gpio_config_t io_conf;
+    //disable interrupt
+    io_conf.intr_type = static_cast<gpio_int_type_t>(GPIO_PIN_INTR_DISABLE);
+    //set as output mode
+    io_conf.mode = GPIO_MODE_OUTPUT;
+    //bit mask of the pins that you want to set
+    io_conf.pin_bit_mask = (1ULL << ionum);
+    //disable pull-down mode
+    io_conf.pull_down_en = static_cast<gpio_pulldown_t>(0);
+    //disable pull-up mode
+    io_conf.pull_up_en = static_cast<gpio_pullup_t>(0);
+    //configure GPIO with the given settings
+    gpio_config(&io_conf);
 }
 
 
 
 
+
 VS1053_Drv::VS1053_Drv()
+    : m_IsInitialized( false )
 {}
 
 VS1053_Drv::~VS1053_Drv()
 {}
 
+VS1053_Drv& VS1053_Drv::Instance()
+{
+    static VS1053_Drv s_Instance;
+    return s_Instance;
+}
+
 bool VS1053_Drv::Initialize()
 {
-    HAL_GPIO_WritePin(GPIOA, AUDIO_RESET_Pin, GPIO_PIN_SET);
-    exlib::sout <<  "VS1053_Drv::Initialize() called.\n";
+    if( m_IsInitialized ){
+        return false;
+    }
+
+    VS1053_Drv_SPI& driver = VS1053_Drv_SPI::Instance();
+    driver.Initialize();
+    driver.DeassertReset();
 
     constexpr uint16_t k_Status_WhenInitCompleted = 0x0040;
     uint16_t status = 0x0000;
@@ -107,16 +249,13 @@ bool VS1053_Drv::Initialize()
             if( !ReadSCI( SCI_STATUS, &status ) ){
                 break;
             }
-            exlib::sout << "Staus: " << status << " \n";
             if( timer.IsElapsed( sk_Busy_Timeout ) ){
-                exlib::sout << "VS1053 initialize timeout.\n";
                 return false;
             }
         }
     }
     
     if( status != k_Status_WhenInitCompleted ){
-        exlib::sout << "VS1053 init command failed.\n";
         return false;
     }
     
@@ -131,6 +270,8 @@ bool VS1053_Drv::Initialize()
         return false;
     }
 
+    m_IsInitialized = true;
+
     return true;
 }
 
@@ -141,7 +282,6 @@ bool VS1053_Drv::ReadSCI( SCI_Register regaddr, uint16_t* data )
         MsTimer timer;
         while( driver.IsBusy() ){
             if( timer.IsElapsed( sk_Busy_Timeout ) ){
-                exlib::sout << "ReadSCI command timeout.\n";
                 return false;
             }
         }
@@ -156,7 +296,6 @@ bool VS1053_Drv::ReadSCI( SCI_Register regaddr, uint16_t* data )
     driver.CommandRelease();
 
     if( is_command_send_ok ){
-        exlib::sout << "Send ReadSCI command OK.\n";
         *data = (recvdata[2] << 8) | recvdata[3];
     }
 

@@ -2,6 +2,7 @@
 #ifndef    RING_BUFFER_HPP
 #define    RING_BUFFER_HPP
 
+#include <freertos/FreeRTOS.h>
 #include <freertos/ringbuf.h>
 
 class RingBuffer

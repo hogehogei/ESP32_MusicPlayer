@@ -53,6 +53,12 @@ public:
      * @retval  false   フラッシュ失敗　書き込み処理に失敗した
      **/
     virtual bool flush() = 0;
+
+    /**
+     * @brief   SPIドライバ初期化
+     * @param [in]  clock_speed_hz      SPIクロック周波数[Hz]
+     **/
+    virtual void Initialize( uint32_t clock_speed_hz ) = 0;
 };
 
 #endif      // I_SDC_DRV_SPI_HPP

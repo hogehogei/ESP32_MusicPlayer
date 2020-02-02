@@ -2,11 +2,17 @@
 
 #include <limits>
 #include <cstring>
+
+//
+// esp-idf headers
+//
+#include "esp_err.h"
 #include "driver/gpio.h"
 
 static constexpr int sk_SPI_Timeout_Ms = 1000;
 
 SDC_Drv_SPI::SDC_Drv_SPI()
+   : m_IsInitialized( false )
 {}
 
 SDC_Drv_SPI::~SDC_Drv_SPI()
@@ -113,9 +119,12 @@ bool SDC_Drv_SPI::flush()
 
 void SDC_Drv_SPI::Initialize( uint32_t clockspeed_hz )
 {
-    esp_err_t ret;
-    spi_device_handle_t spi;
-    spi_bus_config_t buscfg;
+	// 初期化済みなら一旦削除
+	if( m_IsInitialized ){
+		ESP_ERROR_CHECK( spi_bus_remove_device( m_SPIHandle ) );
+	}
+
+    spi_bus_config_t buscfg = {};
     buscfg.miso_io_num = sk_MISO_IONum;
     buscfg.mosi_io_num = sk_MOSI_IONum;
     buscfg.sclk_io_num = sk_SCLK_IONum;
@@ -123,19 +132,19 @@ void SDC_Drv_SPI::Initialize( uint32_t clockspeed_hz )
     buscfg.quadhd_io_num = -1;
     buscfg.max_transfer_sz = sk_MaxTransferSize;
 
-	spi_device_interface_config_t devcfg;
-    devcfg.clock_speed_hz = clockspeed_hz;        //Clock out at 26 MHz
+	spi_device_interface_config_t devcfg = {};
+    devcfg.clock_speed_hz = clockspeed_hz;        //Set clockspeed
     devcfg.mode = 0;                              //SPI mode 0
     devcfg.spics_io_num = -1;                     //CS pin
-    devcfg.queue_size = 4;                        //We want to be able to queue 7 transactions at a time
+    devcfg.queue_size = 4;                        //We want to be able to queue 4 transactions at a time
 
-	ret = spi_bus_initialize( HSPI_HOST, &buscfg, sk_DMAChannel );
-	ESP_ERROR_CHECK( ret );
-	ret = spi_bus_add_device( HSPI_HOST, &devcfg, &spi );
-	ESP_ERROR_CHECK( ret );
+	ESP_ERROR_CHECK( spi_bus_initialize( HSPI_HOST, &buscfg, sk_DMAChannel ) );
+	ESP_ERROR_CHECK( spi_bus_add_device( HSPI_HOST, &devcfg, &m_SPIHandle ) );
 
 	// CS pin 初期化
 	initialize_CS();
+
+	m_IsInitialized = true;
 }
 
 bool SDC_Drv_SPI::waitReady()

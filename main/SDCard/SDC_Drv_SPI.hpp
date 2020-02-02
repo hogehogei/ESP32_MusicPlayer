@@ -58,7 +58,7 @@ public:
     /**
      * @brief   SPIドライバ初期化
      **/
-    static void Initialize( uint32_t clockspeed_hz );
+    virtual void Initialize( uint32_t clockspeed_hz ) override;
 
     /**
      * @brief   SPIドライバ初期化
@@ -70,7 +70,7 @@ private:
     static constexpr int sk_MISO_IONum = 12;
     static constexpr int sk_MOSI_IONum = 13;
     static constexpr int sk_SCLK_IONum = 14;
-    static constexpr gpio_num_t sk_CS_IONum = GPIO_NUM_15;
+    static constexpr gpio_num_t sk_CS_IONum = GPIO_NUM_27;
     static constexpr int sk_MaxTransferSize = 1024;
     static constexpr int sk_DMAChannel = 2;
 
@@ -88,6 +88,7 @@ private:
     bool waitReady();
 
     spi_device_handle_t m_SPIHandle;             //!  ESP32 SPIハンドル
+    bool                m_IsInitialized;         //!  初期化済みフラグ
 };
 
 #endif      // SDC_DRV_SPI_HPP

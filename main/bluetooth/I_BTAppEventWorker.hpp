@@ -13,7 +13,7 @@ class I_BTAppEventWorker
 {
 public:
 
-    virtual ~I_BTAppEventWorker();
+    virtual ~I_BTAppEventWorker() {}
 
     /**
      * @brief    イベントに応じたワーカーを起動する。

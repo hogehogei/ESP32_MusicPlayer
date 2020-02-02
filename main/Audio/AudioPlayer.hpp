@@ -1,8 +1,10 @@
 
-#define    AUDIO_PLAYER_HPP
-#define    AUDIO_PLAYER_HPP
+#ifndef    AUDIO_PLAYER_HPP_INCLUDED
+#define    AUDIO_PLAYER_HPP_INCLUDED
 
 #include <memory>
+#include "I_AudioSource.hpp"
+#include "AudioDrvOut.hpp"
 
 class AudioPlayer
 {
@@ -29,8 +31,8 @@ private:
     I_AudioSource* createAudioSource( AudioSourceMode srcmode );
 
     std::unique_ptr<I_AudioSource> m_AudioSrc;
-    std::unique_ptr<AudioDriver>   m_AudioOut;
+    std::unique_ptr<AudioDrvOut>   m_AudioOut;
     bool m_IsPlaying;
 };
 
-#endif      // AUDIO_PLAYER_HPP
+#endif      // AUDIO_PLAYER_HPP_INCLUDED

@@ -83,6 +83,8 @@ public:
 
 private:
 
+    static constexpr uint32_t sk_ClockSpeedHz_Initializing = 200000;        // 200kHz
+    static constexpr uint32_t sk_ClockSpeedHz_AccessSD     = 1000000;       // 10MHz
     class Progress
     {
     public:
@@ -108,7 +110,7 @@ private:
 
     void busyWait();
     void ignoreRead( uint32_t cnt );
-    void zeroWrite( uint32_t cnt );
+    void sendAnyData( uint32_t cnt );
 
     I_SDC_Drv_SPI*  m_SDC_Drv;                  //! SDカード通信ドライバ
     Progress        m_W_Progress;               //! 書き込み処理 進捗管理
