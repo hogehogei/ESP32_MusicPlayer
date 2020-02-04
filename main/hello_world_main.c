@@ -59,8 +59,8 @@ static void InvokeMainTask( void )
 {
     xTaskCreate( MusicTask, "MusicTask", sk_MusicTaskStackSize, NULL, sk_AppTaskPriority, &s_MusicTaskHandle );
 
-    volatile int endless_loop = 0;
+    const int delay_ms = 1;
     while( 1 ) {
-        endless_loop++;
+        vTaskDelay( delay_ms / portTICK_RATE_MS );
     }
 }

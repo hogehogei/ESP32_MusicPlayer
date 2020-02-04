@@ -24,7 +24,7 @@ bool RingBuffer::IsValid() const
 uint32_t RingBuffer::Send( const uint8_t* src, uint32_t len )
 {
     BaseType_t result = xRingbufferSend( m_BufHandle, src, sizeof(uint8_t), pdMS_TO_TICKS(sk_QueueAccessTimeOutMs) );
-    uint32_t sendsize = result == pdTRUE ? len : 0;
+    uint64_t sendsize = result == pdTRUE ? len : 0;
     
     m_RemainDataCount = std::min<uint64_t>( m_RemainDataCount + sendsize, std::numeric_limits<uint32_t>::max() );
 
@@ -51,11 +51,11 @@ uint32_t RingBuffer::Recv( uint8_t* dst, uint32_t len )
         retrived_count = 0;
     }
 
-    if( m_RemainDataCount > retrived_count ){
+    if( m_RemainDataCount <= retrived_count ){
         m_RemainDataCount = 0;
     }
     else {
-        m_RemainDataCount = retrived_count;
+        m_RemainDataCount -= retrived_count;
     }
 
     return retrived_count;
