@@ -25,7 +25,6 @@ void MusicTask( void* param )
     
     while( 1 ){
         s_AudioPlayer->Update();
-        vTaskDelay( delay_ms / portTICK_RATE_MS );
     }
 }
 

@@ -5,6 +5,9 @@
 #include <cstring>
 #include "Timer.hpp"
 
+// esp headers
+#include "esp_log.h"
+
 static constexpr uint32_t sk_SPI_Send_Timeout = 1000;
 static constexpr uint32_t sk_SPI_Recv_Timeout = 1000;
 static constexpr uint32_t sk_Busy_Timeout = 1000;
@@ -22,32 +25,27 @@ VS1053_Drv_SPI& VS1053_Drv_SPI::Instance()
     return s_Driver;
 }
 
-void VS1053_Drv_SPI::Initialize()
+void VS1053_Drv_SPI::Initialize( uint32_t spi_freq )
 {
-    spi_bus_config_t buscfg = {};
-    buscfg.miso_io_num = sk_MISO_IONum;
-    buscfg.mosi_io_num = sk_MOSI_IONum;
-    buscfg.sclk_io_num = sk_SCLK_IONum;
-    buscfg.quadwp_io_num = -1;
-    buscfg.quadhd_io_num = -1;
-    buscfg.max_transfer_sz = sk_MaxTransferSize;
-
-	spi_device_interface_config_t devcfg = {};
-    devcfg.clock_speed_hz = sk_SPIClockSpeed_Hz;  //Clock out 
-    devcfg.mode = 0;                              //SPI mode 0
-    devcfg.spics_io_num = -1;                     //CS pin
-    devcfg.queue_size = 4;                        //We want to be able to queue 4 transactions at a time
-
-	ESP_ERROR_CHECK( spi_bus_initialize( VSPI_HOST, &buscfg, sk_DMAChannel ) );
-	ESP_ERROR_CHECK( spi_bus_add_device( VSPI_HOST, &devcfg, &m_SPIHandle ) );
-
+    // SPI 初期化
+    initialize_SPI( spi_freq );
     // CS pin 初期化
     initialize_CS( sk_CmdCS_IONum );
+    CommandRelease();
 	initialize_CS( sk_DataCS_IONum );
+    DataRelease();
     // DREQ pin 初期化
     initialize_DReq( sk_DReq_IONum );
     // Audio Reset pin 初期化
     initialize_AudioReset( sk_AudioReset_IONum );
+}
+
+void VS1053_Drv_SPI::ResetSPI( uint32_t spi_freq )
+{
+    ESP_ERROR_CHECK( spi_bus_remove_device( m_SPIHandle ) );
+    ESP_ERROR_CHECK( spi_bus_free( VSPI_HOST ) );
+
+    initialize_SPI( spi_freq );
 }
 
 bool VS1053_Drv_SPI::CommandSelect()
@@ -162,6 +160,26 @@ bool VS1053_Drv_SPI::SendRecv( const uint8_t* senddata, uint8_t* recvdata, uint1
     return spi_device_transmit( m_SPIHandle, &trans ) == ESP_OK;
 }
 
+void VS1053_Drv_SPI::initialize_SPI( uint32_t spi_freq )
+{
+    spi_bus_config_t buscfg = {};
+    buscfg.miso_io_num = sk_MISO_IONum;
+    buscfg.mosi_io_num = sk_MOSI_IONum;
+    buscfg.sclk_io_num = sk_SCLK_IONum;
+    buscfg.quadwp_io_num = -1;
+    buscfg.quadhd_io_num = -1;
+    buscfg.max_transfer_sz = sk_MaxTransferSize;
+
+	spi_device_interface_config_t devcfg = {};
+    devcfg.clock_speed_hz = spi_freq;             //Clock out 
+    devcfg.mode = 0;                              //SPI mode 0
+    devcfg.spics_io_num = -1;                     //CS pin
+    devcfg.queue_size = 1;                        //We want to be able to queue 1 transactions at a time
+
+	ESP_ERROR_CHECK( spi_bus_initialize( VSPI_HOST, &buscfg, sk_DMAChannel ) );
+	ESP_ERROR_CHECK( spi_bus_add_device( VSPI_HOST, &devcfg, &m_SPIHandle ) );
+}
+
 void VS1053_Drv_SPI::initialize_CS( gpio_num_t ionum )
 {
     gpio_config_t io_conf;
@@ -237,7 +255,8 @@ bool VS1053_Drv::Initialize()
     }
 
     VS1053_Drv_SPI& driver = VS1053_Drv_SPI::Instance();
-    driver.Initialize();
+    // 初期化時のSPI速度で設定
+    driver.Initialize( sk_SPIClockSpeedInitialize_Hz );
     driver.DeassertReset();
 
     constexpr uint16_t k_Status_WhenInitCompleted = 0x0040;
@@ -249,6 +268,7 @@ bool VS1053_Drv::Initialize()
             if( !ReadSCI( SCI_STATUS, &status ) ){
                 break;
             }
+            ESP_LOGI("VS1053_Drv", "Initialize status %x", status);
             if( timer.IsElapsed( sk_Busy_Timeout ) ){
                 return false;
             }
@@ -260,7 +280,6 @@ bool VS1053_Drv::Initialize()
     }
     
     // クロックのセット
-    // 3.5 * XTALI, マルチプライヤ追加 2.0x まで
     if( !setClock() ){
         return false;
     }
@@ -270,7 +289,11 @@ bool VS1053_Drv::Initialize()
         return false;
     }
 
+    // SPIクロックを増やしたので、本来の速度に再設定
+    driver.ResetSPI( sk_SPIClockSpeed_Hz );
     m_IsInitialized = true;
+
+    ESP_LOGI("VS1053_Drv", "Initialize completed!");
 
     return true;
 }
@@ -378,5 +401,5 @@ void VS1053_Drv::SoftReset()
 
 bool VS1053_Drv::setClock()
 {
-    return WriteSCI( SCI_CLOCKF, 0x4C00 );
+    return WriteSCI( SCI_CLOCKF, 0x8800 );
 }

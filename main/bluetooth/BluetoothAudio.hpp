@@ -14,6 +14,7 @@
 #include "esp_avrc_api.h"
 
 #include "I_BTAppEventWorker.hpp"
+#include "StreamInfo.hpp"
 #include "RingBuffer.hpp"
 
 class BluetoothAudio
@@ -28,14 +29,17 @@ public:
 
     uint32_t RemainDataCount() const;
     uint32_t ReadA2D_Data( uint8_t* dst, uint32_t len );
-    
+
+    void SetConfiguration( const StreamInfo& info );
+    StreamInfo GetConfiguration() const;
+
 private:
 
     static inline constexpr char sk_DeviceName[]       = "ESP_SPEAKER";
     static constexpr int sk_AppTaskQueueSize    = 10;
-    static constexpr int sk_AppTaskStackSize    = 3072;
+    static constexpr int sk_AppTaskStackSize    = 1024 * 4;
     static constexpr int sk_AppTaskPriority     = configMAX_PRIORITIES - 3;
-    static constexpr int sk_AudioBufferSize     = 1024 * 8;         // 8KB
+    static constexpr int sk_AudioBufferSize     = 1024 * 16;         // 16KB
 
     BluetoothAudio();
     ~BluetoothAudio() noexcept;
@@ -56,6 +60,8 @@ private:
     xTaskHandle  m_BT_AppTaskHandle;
     xQueueHandle m_BT_AppTaskQueue;
     RingBuffer   m_RingBuffer;
+
+    StreamInfo   m_SBCConfiguraiton;
 };
 
 #endif    // BLUETOOTH_AUDIO_HPP

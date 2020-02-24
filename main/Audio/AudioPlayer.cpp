@@ -7,7 +7,7 @@
 AudioPlayer::AudioPlayer( AudioSourceMode srcmode )
  : m_AudioSrc( nullptr ),
    m_AudioOut( std::unique_ptr<AudioDrvOut>( new AudioDrvOut() ) ),
-   m_IsPlaying( false )
+   m_Mode( Mode_Stop )
 {
     m_AudioSrc = std::unique_ptr<I_AudioSource>( createAudioSource( srcmode ) );
 }
@@ -20,20 +20,22 @@ void AudioPlayer::Update()
     BluetoothInput& input = BluetoothInput::Instance();
 
     if( input.IsStopKeyPressed() ){
-        if( m_IsPlaying ){
+        if( m_Mode != Mode_Stop ){
             m_AudioOut->Stop();
-            m_IsPlaying = false;
+            m_Mode = Mode_Stop;
         }
     }
     if( input.IsPauseKeyPressed() ){
-        if( m_IsPlaying ){
-            m_IsPlaying = false;
-        }
+        m_Mode = Mode_Pause;
     }
     if( input.IsPlayKeyPressed() ){
-        if( !m_IsPlaying ){
+        if( m_Mode != Mode_Playing ){
+            if( m_Mode == Mode_Stop ){
+                StreamInfo info = m_AudioSrc->GetStreamInfo();
+                m_AudioOut->SetPCMStream( info );
+            }
             m_AudioOut->Start();
-            m_IsPlaying = true;
+            m_Mode = Mode_Playing;
         }
     }
 #if 0
@@ -45,7 +47,7 @@ void AudioPlayer::Update()
     }
 #endif
 
-    if( m_IsPlaying ){
+    if( m_Mode == Mode_Playing ){
         m_AudioOut->FeedAudioData( m_AudioSrc.get() );
     }
 }

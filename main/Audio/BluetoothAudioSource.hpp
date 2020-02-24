@@ -2,6 +2,7 @@
 #define     BLUETOOTH_AUDIO_SOURCE_HPP
 
 #include "I_AudioSource.hpp"
+#include "StreamInfo.hpp"
 
 class BluetoothAudioSource : public I_AudioSource
 {
@@ -12,6 +13,7 @@ public:
 
     virtual uint32_t RemainDataCount() const override;
     virtual uint32_t Read( uint8_t* dst, uint32_t len ) override;
+    virtual StreamInfo GetStreamInfo() const override;
 
 private:
 

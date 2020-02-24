@@ -136,7 +136,7 @@ void SDC_Drv_SPI::Initialize( uint32_t clockspeed_hz )
     devcfg.clock_speed_hz = clockspeed_hz;        //Set clockspeed
     devcfg.mode = 0;                              //SPI mode 0
     devcfg.spics_io_num = -1;                     //CS pin
-    devcfg.queue_size = 4;                        //We want to be able to queue 4 transactions at a time
+    devcfg.queue_size = 1;                        //We want to be able to queue 1 transactions at a time
 
 	ESP_ERROR_CHECK( spi_bus_initialize( HSPI_HOST, &buscfg, sk_DMAChannel ) );
 	ESP_ERROR_CHECK( spi_bus_add_device( HSPI_HOST, &devcfg, &m_SPIHandle ) );

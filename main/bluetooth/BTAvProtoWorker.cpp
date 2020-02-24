@@ -1,15 +1,13 @@
 
 #include "BTAvProtoWorker.hpp"
+#include "I_AudioSource.hpp"
+#include "BluetoothAudio.hpp"
 #include "BluetoothInput.hpp"
 #include "Log.hpp"
 
 // esp headers
 #include "esp_log.h"
 #include "esp_gap_bt_api.h"
-
-//#include "esp_bt.h"
-//#include "esp_bt_main.h"
-//#include "esp_bt_device.h"
 
 //
 // static variables
@@ -19,7 +17,7 @@ static const char *sk_A2d_AudioStateStr[] = {"Suspended", "Stopped", "Started"};
 
 BT_A2DP_Worker::BT_A2DP_Worker( esp_a2d_cb_event_t event, esp_a2d_cb_param_t* param )
  : m_Event( event ),
-   m_Param( param )
+   m_Param( *param )
 {}
 
 BT_A2DP_Worker::~BT_A2DP_Worker()
@@ -27,13 +25,9 @@ BT_A2DP_Worker::~BT_A2DP_Worker()
 
 bool BT_A2DP_Worker::Invoke()
 {
-    ESP_LOGD( LogTagName::sk_BT_A2DP, "%s evt %d", __func__, m_Event );
+    ESP_LOGI( LogTagName::sk_BT_A2DP, "%s evt %d", __func__, m_Event );
 
-    if( !m_Param ){
-        return false;
-    }
-
-    esp_a2d_cb_param_t *a2d = m_Param;
+    esp_a2d_cb_param_t *a2d = &m_Param;
     switch ( m_Event ) {
     case ESP_A2D_CONNECTION_STATE_EVT: {
         uint8_t *bda = a2d->conn_stat.remote_bda;
@@ -48,28 +42,14 @@ bool BT_A2DP_Worker::Invoke()
     }
     case ESP_A2D_AUDIO_STATE_EVT: {
         ESP_LOGI(LogTagName::sk_BT_A2DP, "A2DP audio state: %s", sk_A2d_AudioStateStr[a2d->audio_stat.state]);
+        receiveAudioConfigEvent( a2d->audio_stat.state );
         break;
     }
     case ESP_A2D_AUDIO_CFG_EVT: {
         ESP_LOGI(LogTagName::sk_BT_A2DP, "A2DP audio stream configuration, codec type %d", a2d->audio_cfg.mcc.type);
         // for now only SBC stream is supported
         if (a2d->audio_cfg.mcc.type == ESP_A2D_MCT_SBC) {
-            int sample_rate = 16000;
-            char oct0 = a2d->audio_cfg.mcc.cie.sbc[0];
-            if (oct0 & (0x01 << 6)) {
-                sample_rate = 32000;
-            } else if (oct0 & (0x01 << 5)) {
-                sample_rate = 44100;
-            } else if (oct0 & (0x01 << 4)) {
-                sample_rate = 48000;
-            }
-
-            ESP_LOGI(LogTagName::sk_BT_A2DP, "Configure audio player %x-%x-%x-%x",
-                     a2d->audio_cfg.mcc.cie.sbc[0],
-                     a2d->audio_cfg.mcc.cie.sbc[1],
-                     a2d->audio_cfg.mcc.cie.sbc[2],
-                     a2d->audio_cfg.mcc.cie.sbc[3]);
-            ESP_LOGI(LogTagName::sk_BT_A2DP, "Audio player configured, sample rate=%d", sample_rate);
+            configureStream( a2d );
         }
         break;
     }
@@ -81,10 +61,59 @@ bool BT_A2DP_Worker::Invoke()
     return true;
 }
 
+void BT_A2DP_Worker::receiveAudioConfigEvent( const esp_a2d_audio_state_t state )
+{
+    BluetoothInput& input = BluetoothInput::Instance();
+
+    switch( state ){
+    case ESP_A2D_AUDIO_STATE_REMOTE_SUSPEND:
+            input.PauseKeyPressed();
+        break;
+    case ESP_A2D_AUDIO_STATE_STOPPED:
+            input.StopKeyPressed();
+        break;
+    case ESP_A2D_AUDIO_STATE_STARTED:
+            input.PlayKeyPressed();
+        break;
+    default:
+        break;
+    }
+}
+
+void BT_A2DP_Worker::configureStream( const esp_a2d_cb_param_t* a2d )
+{
+    StreamInfo info;
+    info.type = StreamInfo::Type_PCM;
+    info.sample_rate = 16000;
+    info.bit_depth   = StreamInfo::BitDepth_16Bit;
+    info.channel     = StreamInfo::Channel_Monoral;
+
+    char oct0 = a2d->audio_cfg.mcc.cie.sbc[0];
+    if (oct0 & (0x01 << 6)) {
+        info.sample_rate = 32000;
+    } else if (oct0 & (0x01 << 5)) {
+        info.sample_rate = 44100;
+    } else if (oct0 & (0x01 << 4)) {
+        info.sample_rate = 48000;
+    }
+
+    if( oct0 & (0x01 << 0) || oct0 & (0x01 << 1) ){
+        info.channel = StreamInfo::Channel_Stereo;
+    }
+
+    BluetoothAudio::Instance().SetConfiguration( info );
+
+    ESP_LOGI(LogTagName::sk_BT_A2DP, "Configure audio player %x-%x-%x-%x",
+             a2d->audio_cfg.mcc.cie.sbc[0],
+             a2d->audio_cfg.mcc.cie.sbc[1],
+             a2d->audio_cfg.mcc.cie.sbc[2],
+             a2d->audio_cfg.mcc.cie.sbc[3]);
+    ESP_LOGI(LogTagName::sk_BT_A2DP, "Audio player configured, sample rate=%d", info.sample_rate);
+}
 
 BT_AVRCPTarget_Worker::BT_AVRCPTarget_Worker( esp_avrc_tg_cb_event_t event, esp_avrc_tg_cb_param_t *param )
  : m_Event( event ),
-   m_Param( param )
+   m_Param( *param )
 {}
 
 BT_AVRCPTarget_Worker::~BT_AVRCPTarget_Worker()
@@ -92,13 +121,9 @@ BT_AVRCPTarget_Worker::~BT_AVRCPTarget_Worker()
 
 bool BT_AVRCPTarget_Worker::Invoke()
 {
-    ESP_LOGD( LogTagName::sk_BT_AVRCP, "%s evt %d", __func__, m_Event );
+    ESP_LOGI( LogTagName::sk_BT_AVRCP, "%s evt %d", __func__, m_Event );
 
-    if( !m_Param ){
-        return false;
-    }
-
-    esp_avrc_tg_cb_param_t *rc = m_Param;
+    esp_avrc_tg_cb_param_t *rc = &m_Param;
     switch ( m_Event ) {
     case ESP_AVRC_TG_CONNECTION_STATE_EVT: {
         uint8_t *bda = rc->conn_stat.remote_bda;

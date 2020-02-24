@@ -6,6 +6,7 @@
 
 RingBuffer::RingBuffer( uint32_t bufsize )
  : m_BufHandle( NULL ),
+   m_BufSize( bufsize ),
    m_RemainDataCount( 0 )
 {
     m_BufHandle = xRingbufferCreate( bufsize, RINGBUF_TYPE_BYTEBUF );
@@ -23,9 +24,15 @@ bool RingBuffer::IsValid() const
 
 uint32_t RingBuffer::Send( const uint8_t* src, uint32_t len )
 {
-    BaseType_t result = xRingbufferSend( m_BufHandle, src, sizeof(uint8_t), pdMS_TO_TICKS(sk_QueueAccessTimeOutMs) );
+    BaseType_t result = xRingbufferSend( m_BufHandle, src, sizeof(uint8_t) * len, pdMS_TO_TICKS(sk_QueueAccessTimeOutMs) );
+
+    if( result != pdTRUE ){
+        vRingbufferDelete( m_BufHandle );
+        m_BufHandle = xRingbufferCreate( m_BufSize, RINGBUF_TYPE_BYTEBUF );    
+        return 0;
+    }
+
     uint64_t sendsize = result == pdTRUE ? len : 0;
-    
     m_RemainDataCount = std::min<uint64_t>( m_RemainDataCount + sendsize, std::numeric_limits<uint32_t>::max() );
 
     return sendsize;
@@ -48,7 +55,11 @@ uint32_t RingBuffer::Recv( uint8_t* dst, uint32_t len )
         vRingbufferReturnItem( m_BufHandle, recv_data );
     }
     else {
+        vRingbufferDelete( m_BufHandle );
+        m_BufHandle = xRingbufferCreate( m_BufSize, RINGBUF_TYPE_BYTEBUF );    
         retrived_count = 0;
+
+        return 0;
     }
 
     if( m_RemainDataCount <= retrived_count ){

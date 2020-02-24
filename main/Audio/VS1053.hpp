@@ -21,7 +21,8 @@ public:
 
     static VS1053_Drv_SPI& Instance();
 
-    void Initialize();
+    void Initialize( uint32_t spi_freq );
+    void ResetSPI( uint32_t spi_freq );
     bool CommandSelect();
     void CommandRelease();
     bool DataSelect();
@@ -37,6 +38,7 @@ public:
 
 private:
 
+
     static constexpr int sk_MISO_IONum = 19;
     static constexpr int sk_MOSI_IONum = 23;
     static constexpr int sk_SCLK_IONum = 18;
@@ -46,12 +48,12 @@ private:
     static constexpr gpio_num_t sk_AudioReset_IONum = GPIO_NUM_5;
     static constexpr int sk_MaxTransferSize = 1024;
     static constexpr int sk_DMAChannel = 2;
-    static constexpr int sk_SPIClockSpeed_Hz = 1500000;    // 1.5MHz  後で修正
 
     static VS1053_Drv_SPI s_Driver;
 
     VS1053_Drv_SPI();
 
+    void initialize_SPI( uint32_t spi_freq );
     void initialize_CS( gpio_num_t ionum );
     void initialize_DReq( gpio_num_t ionum );
     void initialize_AudioReset( gpio_num_t ionum );
@@ -112,6 +114,8 @@ private:
     
     bool setClock();
 
+    static constexpr int sk_SPIClockSpeed_Hz = 8000000;             // 8MHz
+    static constexpr int sk_SPIClockSpeedInitialize_Hz = 1000000;   // 1MHz
     static constexpr uint8_t sk_SCI_ReadInstruction  = 0x03;
     static constexpr uint8_t sk_SCI_WriteInstruction = 0x02;
     static constexpr uint16_t sk_EndFillByte_Address = 0x1E06;

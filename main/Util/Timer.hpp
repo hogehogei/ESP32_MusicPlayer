@@ -14,12 +14,12 @@ public:
     MsTimer& operator=( const MsTimer& ) = delete;
     
     bool IsValid() const;
-    bool IsElapsed( uint32_t time ) const;
+    bool IsElapsed( uint32_t milli_sec ) const;
     void Reset();
 
 private:
 
-    int64_t m_BeginTime;
+    int64_t m_BeginTimeMs;
 };
 
 #endif      // TIMER_HPP_INCLUDED

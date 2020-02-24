@@ -24,6 +24,7 @@ private:
 
     static constexpr int sk_QueueAccessTimeOutMs = 1000;
     RingbufHandle_t m_BufHandle;
+    uint32_t        m_BufSize;
     uint32_t        m_RemainDataCount;
 };
 

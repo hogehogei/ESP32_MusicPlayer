@@ -2,8 +2,13 @@
 #include "AudioDrvOut.hpp"
 
 #include <limits>
-#include "VS1053.hpp"
+#include <algorithm>
 #include "I_AudioSource.hpp"
+#include "VS1053.hpp"
+#include "WavHeader.hpp"
+
+// esp headers
+#include "esp_log.h"
 
 AudioDrvOut::AudioDrvOut()
 {
@@ -77,17 +82,60 @@ void AudioDrvOut::VolumeDown()
 
 void AudioDrvOut::FeedAudioData( I_AudioSource* source )
 {
+    static constexpr int sk_FeedDataChunkByteSize = 32;
+    static uint8_t buf[sk_FeedDataChunkByteSize];
     VS1053_Drv& driver = VS1053_Drv::Instance();
     
-    static constexpr int sk_FeedDataChunkByteSize = 32;
-    uint8_t buf[sk_FeedDataChunkByteSize];
+    while( !driver.IsBusy() && source->RemainDataCount() >= sk_FeedDataChunkByteSize ){
+        int size = source->Read( buf, sk_FeedDataChunkByteSize );
+        driver.WriteSDI( buf, sk_FeedDataChunkByteSize );
+        //ESP_LOGI("AudioDrvOut", "CurrentFormat : %x", CurrentFormat() );
+        //ESP_LOGI("AudioDrvOut", "readsize : %d", size );
+    }
+}
 
-    if( !driver.IsBusy() ){
-        if( source->RemainDataCount() >= sk_FeedDataChunkByteSize ){
-            source->Read( buf, sk_FeedDataChunkByteSize );
-            driver.WriteSDI( buf, sk_FeedDataChunkByteSize );
+void AudioDrvOut::SetPCMStream( const StreamInfo& info )
+{
+    static constexpr int sk_FeedDataChunkByteSize = 32;
+    VS1053_Drv& driver = VS1053_Drv::Instance();
+    WavHeader wav_header( info );
+    uint8_t* wav_header_bytes = wav_header.CreateHeader();
+
+    ESP_LOGI("AudioDrvOut", "SetPCMStream");
+
+    int cnt = 0;
+    for( int i = 0; i < 8; ++i ){
+        for( int j = 0; j < 16; ++j ){
+            if( cnt >= WavHeader::sk_HeaderSize ){
+                i = 8; break;
+            }
+
+            printf( "%02X ", (unsigned)wav_header_bytes[i * 16 + j] );
+            ++cnt;
+        }
+        printf( "\n" );
+    }
+
+    uint32_t write_size = 0;
+    while( write_size < WavHeader::sk_HeaderSize ){
+        if( !driver.IsBusy() ){
+            uint32_t size = std::min<uint32_t>( WavHeader::sk_HeaderSize - write_size, sk_FeedDataChunkByteSize );
+            driver.WriteSDI( &wav_header_bytes[write_size], size );
+            write_size += size;
         }
     }
+
+    delete [] wav_header_bytes;
+}
+
+uint16_t AudioDrvOut::CurrentFormat()
+{
+    VS1053_Drv& driver = VS1053_Drv::Instance();
+    uint16_t data;
+
+    driver.ReadSCI( VS1053_Drv::SCI_HDAT1, &data );
+
+    return data;
 }
 
 void AudioDrvOut::sendEndFillBytes( const uint32_t send_count )

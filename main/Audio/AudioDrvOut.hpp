@@ -2,6 +2,7 @@
 #define     AUDIO_DRV_OUT_INCLUDED
 
 #include <cstdint>
+#include "StreamInfo.hpp"
 
 class I_AudioSource;
 class AudioDrvOut
@@ -16,6 +17,8 @@ public:
     void VolumeUp();
     void VolumeDown();
     void FeedAudioData( I_AudioSource* source );
+    void SetPCMStream( const StreamInfo& info );
+    uint16_t CurrentFormat();
 
 private:
 

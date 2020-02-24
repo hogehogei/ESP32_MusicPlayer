@@ -16,6 +16,13 @@ public:
         AudioSrc_SDC,
     };
 
+    enum PlayingMode
+    {
+        Mode_Stop,
+        Mode_Pause,
+        Mode_Playing,
+    };
+
 public:
 
     AudioPlayer( AudioSourceMode srcmode );
@@ -32,7 +39,7 @@ private:
 
     std::unique_ptr<I_AudioSource> m_AudioSrc;
     std::unique_ptr<AudioDrvOut>   m_AudioOut;
-    bool m_IsPlaying;
+    PlayingMode                    m_Mode;
 };
 
 #endif      // AUDIO_PLAYER_HPP_INCLUDED

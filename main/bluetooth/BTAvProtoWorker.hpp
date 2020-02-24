@@ -20,8 +20,11 @@ public:
 
 private:
 
-    esp_a2d_cb_event_t  m_Event;
-    esp_a2d_cb_param_t* m_Param;
+    void receiveAudioConfigEvent( const esp_a2d_audio_state_t state );
+    void configureStream( const esp_a2d_cb_param_t* a2d );
+
+    esp_a2d_cb_event_t m_Event;
+    esp_a2d_cb_param_t m_Param;
 };
 
 class BT_AVRCPTarget_Worker : public I_BTAppEventWorker
@@ -43,8 +46,8 @@ private:
 
     void receivePassThruCmd( uint8_t cmd_code, uint8_t state );
 
-    esp_avrc_tg_cb_event_t  m_Event;
-    esp_avrc_tg_cb_param_t* m_Param;
+    esp_avrc_tg_cb_event_t m_Event;
+    esp_avrc_tg_cb_param_t m_Param;
 };
 
 #endif      // BT_AV_PROTO_WORKER_HPP

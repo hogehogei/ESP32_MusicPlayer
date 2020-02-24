@@ -2,6 +2,7 @@
 #define     I_AUDIO_SOURCE_HPP
 
 #include <cstdint>
+#include "StreamInfo.hpp"
 
 class I_AudioSource
 {
@@ -12,6 +13,7 @@ public:
 
     virtual uint32_t RemainDataCount() const = 0;
     virtual uint32_t Read( uint8_t* dst, uint32_t len ) = 0;
+    virtual StreamInfo GetStreamInfo() const = 0;
 };
 
 #endif      // I_AUDIO_SOURNCE_HPP
