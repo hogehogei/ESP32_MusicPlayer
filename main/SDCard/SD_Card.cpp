@@ -1,13 +1,21 @@
-#include <freertos/FreeRTOS.h>
-#include <freertos/task.h>
+
 #include "SD_Card.hpp"
+
 #include <limits>
 #include <algorithm>
+
+// esp-idf headers
+#include "esp_log.h"
+
+// FreeRTOS headers
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 
 // SDCard Command Set
 static constexpr uint8_t sk_CMD0        = (0x40 + 0);
 static constexpr uint8_t sk_CMD1        = (0x40 + 1);
 static constexpr uint8_t sk_CMD8        = (0x40 + 8);
+static constexpr uint8_t sk_CMD9        = (0x40 + 9);
 static constexpr uint8_t sk_CMD16       = (0x40 + 16);
 static constexpr uint8_t sk_CMD17       = (0x40 + 17);
 static constexpr uint8_t sk_CMD25       = (0x40 + 25);
@@ -24,7 +32,7 @@ static constexpr uint8_t sk_CMD_RES_OK  = 0x00;
 
 // SDCard Data Token
 static constexpr uint8_t sk_ErrorTokenMask     = 0x01;              //! エラートークンマスク
-static constexpr uint8_t sk_DataToken_CMD17    = 0xFE;              //! CMD17 データトークン
+static constexpr uint8_t sk_DataToken_Read     = 0xFE;              //! CMD17 データトークン
 static constexpr uint8_t sk_DataToken_CMD25    = 0xFC;              //! CMD25 データトークン
 static constexpr uint8_t sk_StopTransToken_CMD25 = 0xFD;            //! CMD25 StopTrans
 
@@ -69,7 +77,8 @@ SD_Card::SD_Card()
    m_W_Progress(),
    m_SDC_State( false ),
    m_IsWriteOpeProcessing( false ),
-   m_CardType( 0 )
+   m_CardType( 0 ),
+   m_SectorCount( 0 )
 {}
 
 SD_Card::~SD_Card()
@@ -124,13 +133,16 @@ bool SD_Card::Initialize( I_SDC_Drv_SPI* driver )
     // SPIの速度再設定
     m_SDC_Drv->Initialize( sk_ClockSpeedHz_AccessSD );
     
+    // セクタサイズ読み込み
+    readSectorSize();
+    printSDCardInfo();
+
     if( type == sk_SDC_Type_None ){
         m_SDC_State = false;
         return false;
     }
 
     m_CardType = type;
-
     return true;
 }
 
@@ -342,6 +354,21 @@ bool SD_Card::WriteFinalize()
     return result;
 }
 
+bool SD_Card::State() const
+{
+    return m_SDC_State;
+}
+
+bool SD_Card::IsInitialized() const
+{
+    return m_CardType != sk_SDC_Type_None;
+}
+
+uint32_t SD_Card::SectorCount() const
+{
+    return m_SectorCount;
+}
+
 /**
  * @brief   SDv2 初期化
  *          上位側でSDv2であるか判断する。
@@ -417,6 +444,66 @@ uint8_t SD_Card::initialize_SDv1_or_MMCv3()
     }
 
     return type;
+}
+
+/**
+ * @brief   SDカード情報を出力
+ **/
+void SD_Card::printSDCardInfo()
+{
+    if( (m_CardType & sk_SDC_Type_SD1) == sk_SDC_Type_SD1 ){
+        ESP_LOGI( "SD_Card", "SDCard initialized SDv1." );
+    }
+    else if( (m_CardType & sk_SDC_Type_SD2) == sk_SDC_Type_SD2 ){
+        ESP_LOGI( "SD_Card", "SDCard initialized SDv2." );
+    }
+    else if( (m_CardType & sk_SDC_Type_MMC) == sk_SDC_Type_MMC ){
+        ESP_LOGI( "SD_Card", "SDCard initialized MMC." );
+    }
+    else {
+        ESP_LOGE( "SD_Card", "No detect card or invalid type." );
+    }
+}
+
+/**
+ * @brief   セクタ数読み込み
+ **/
+void SD_Card::readSectorSize()
+{
+    if( sendCmd( sk_CMD9, 0 ) != sk_CMD_RES_OK ){
+        ESP_LOGE( "SD_Card", "Read sector command(CMD9) failed." );
+        m_SectorCount = 0;
+        return;
+    }
+    if( !waitReadDataPacket() ){
+        ESP_LOGE( "SD_Card", "Read sector command(CMD9) not respond." );
+        m_SectorCount = 0;
+        return;
+    }
+
+    // CSDデータ = 16byte
+    // CRC = 2byte
+    uint8_t csd_data[16 + 2];
+    m_SDC_Drv->recv( csd_data, sizeof(csd_data) );
+
+    // SDv1 と SDv2 でcsdレジスタの配置が違うので、読み分ける
+    uint64_t sdcsize_byte = 0;
+    if( (m_CardType & sk_SDC_Type_SD2) == sk_SDC_Type_SD2 ){
+        sdcsize_byte = csd_data[8] | (csd_data[7] << 8) | ((csd_data[6] & 0x3F)<< 16); 
+    }
+    else if( ((m_CardType & sk_SDC_Type_SD1) == sk_SDC_Type_SD1) ||
+             ((m_CardType & sk_SDC_Type_MMC) == sk_SDC_Type_MMC) )
+    {
+        uint64_t c_size = ((csd_data[7] & 0xC0) >> 6) | (csd_data[6] << 2) | ((csd_data[5] & 0x03) << 10);
+        uint64_t c_size_mult = ((csd_data[9] & 0x80) >> 7) | (csd_data[8] & 0x03);
+        uint64_t block_len = csd_data[7] & 0x0F;
+
+        block_len = block_len == 0 ? 1 : block_len;
+        sdcsize_byte = (c_size + 1) * (2ULL << (c_size_mult + 1)) * (2ULL << (block_len - 1));
+    }
+
+    m_SectorCount = sdcsize_byte / sk_SectorSize;
+    ESP_LOGI( "SD_Card", "sdcard size : %llu,  sector count : %u", sdcsize_byte, m_SectorCount );
 }
 
 /**
@@ -572,8 +659,8 @@ bool SD_Card::waitReadDataPacket()
         	break;
         }
     }
-    // CMD17 のデータトークンを受信したらOK
-    if( token == sk_DataToken_CMD17 ){
+    // データトークンを受信したらOK
+    if( token == sk_DataToken_Read ){
         return true;
     }
 

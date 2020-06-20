@@ -12,11 +12,11 @@
 
 AudioDrvOut::AudioDrvOut()
 {
-    VS1053_Drv::Instance().Initialize();
 }
 
 AudioDrvOut::~AudioDrvOut()
 {
+    Stop();
 }
 
 void AudioDrvOut::Start()
@@ -86,9 +86,9 @@ void AudioDrvOut::FeedAudioData( I_AudioSource* source )
     static uint8_t buf[sk_FeedDataChunkByteSize];
     VS1053_Drv& driver = VS1053_Drv::Instance();
     
-    while( !driver.IsBusy() && source->RemainDataCount() >= sk_FeedDataChunkByteSize ){
+    while( !driver.IsBusy() && source->RemainDataCount() > 0 ){
         int size = source->Read( buf, sk_FeedDataChunkByteSize );
-        driver.WriteSDI( buf, sk_FeedDataChunkByteSize );
+        driver.WriteSDI( buf, size );
         //ESP_LOGI("AudioDrvOut", "CurrentFormat : %x", CurrentFormat() );
         //ESP_LOGI("AudioDrvOut", "readsize : %d", size );
     }

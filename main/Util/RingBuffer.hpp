@@ -1,6 +1,6 @@
 
-#ifndef    RING_BUFFER_HPP
-#define    RING_BUFFER_HPP
+#ifndef    RING_BUFFER_HPP_INCLUDED
+#define    RING_BUFFER_HPP_INCLUDED
 
 #include <freertos/FreeRTOS.h>
 #include <freertos/ringbuf.h>
@@ -28,4 +28,4 @@ private:
     uint32_t        m_RemainDataCount;
 };
 
-#endif      // RING_BUFFER_HPP
+#endif      // RING_BUFFER_HPP_INCLUDED

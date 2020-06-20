@@ -1,6 +1,6 @@
 
-#ifndef     I_BT_APP_EVENT_WORKER_HPP
-#define     I_BT_APP_EVENT_WORKER_HPP
+#ifndef     I_BT_APP_EVENT_WORKER_HPP_INCLUDED
+#define     I_BT_APP_EVENT_WORKER_HPP_INCLUDED
 
 /**
  * @brief   Bluetooth のイベントに応じた処理を別タスクで実行するための、インターフェースクラス
@@ -22,4 +22,4 @@ public:
     virtual bool Invoke() = 0;
 };
 
-#endif    // I_BT_APP_EVENT_WORKER_HPP
+#endif    // I_BT_APP_EVENT_WORKER_HPP_INCLUDED

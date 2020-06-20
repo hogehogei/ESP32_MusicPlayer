@@ -3,19 +3,49 @@
 #include "BluetoothAudioSource.hpp"
 #include "AudioDrvOut.hpp"
 #include "BluetoothInput.hpp"
+#include "ButtonInput.hpp"
 
-AudioPlayer::AudioPlayer( AudioSourceMode srcmode )
- : m_AudioSrc( nullptr ),
+
+AudioPlayerFromSD::AudioPlayerFromSD()
+ : m_AudioSrc( std::unique_ptr<SDCAudioSource>( new SDCAudioSource() ) ),
    m_AudioOut( std::unique_ptr<AudioDrvOut>( new AudioDrvOut() ) ),
    m_Mode( Mode_Stop )
-{
-    m_AudioSrc = std::unique_ptr<I_AudioSource>( createAudioSource( srcmode ) );
-}
-
-AudioPlayer::~AudioPlayer()
 {}
 
-void AudioPlayer::Update()
+AudioPlayerFromSD::~AudioPlayerFromSD()
+{}
+
+void AudioPlayerFromSD::Update()
+{
+    ButtonInput& input = ButtonInput::Instance();
+    m_AudioOut->FeedAudioData( m_AudioSrc.get() );
+
+    if( m_AudioSrc->IsEOF() ){
+        m_AudioOut->Stop();
+        m_AudioSrc->NextEntry();
+        m_AudioOut->Start();
+    }
+    if( input.NextButtonPressed() ){
+        m_AudioOut->Stop();
+        m_AudioSrc->NextEntry();
+        m_AudioOut->Start();
+    }
+}
+
+
+
+
+
+AudioPlayerFromBT::AudioPlayerFromBT()
+ : m_AudioSrc( std::unique_ptr<BluetoothAudioSource>( new BluetoothAudioSource() )),
+   m_AudioOut( std::unique_ptr<AudioDrvOut>( new AudioDrvOut() )),
+   m_Mode( Mode_Stop )
+{}
+
+AudioPlayerFromBT::~AudioPlayerFromBT()
+{}
+
+void AudioPlayerFromBT::Update()
 {
     BluetoothInput& input = BluetoothInput::Instance();
 
@@ -38,21 +68,8 @@ void AudioPlayer::Update()
             m_Mode = Mode_Playing;
         }
     }
-#if 0
-    if( input->VolumeUp() ){
-        m_AudioOut->VolumeUp();
-    }
-    if( input->VolumeDown() ){
-        m_AudioOut->VolumeDown();
-    }
-#endif
 
     if( m_Mode == Mode_Playing ){
         m_AudioOut->FeedAudioData( m_AudioSrc.get() );
     }
-}
-
-I_AudioSource* AudioPlayer::createAudioSource( AudioSourceMode srcmode )
-{
-    return new BluetoothAudioSource;
 }

@@ -1,5 +1,5 @@
-#ifndef VS1053_HPP_DEFINED
-#define VS1053_HPP_DEFINED
+#ifndef VS1053_HPP_INCLUDED
+#define VS1053_HPP_INCLUDED
 
 #include <cstdint>
 
@@ -123,4 +123,4 @@ private:
     bool m_IsInitialized;
 };
 
-#endif    // VS1053_HPP_DEFINED
+#endif    // VS1053_HPP_INCLUDED

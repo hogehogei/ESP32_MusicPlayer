@@ -2,13 +2,29 @@
 #include "BluetoothAudioSource.hpp"
 #include "BluetoothAudio.hpp"
 
+//
+// class static variables
+//
+int BluetoothAudioSource::s_CreatedCount = 0;
+
 BluetoothAudioSource::BluetoothAudioSource()
 {
-    BluetoothAudio::Instance().Initialize();
+    if( !BluetoothAudio::Instance().IsInitialized() ){
+        BluetoothAudio::Instance().Initialize();
+    }
+
+    ++s_CreatedCount;
 }
 
 BluetoothAudioSource::~BluetoothAudioSource()
-{}
+{   
+    --s_CreatedCount;
+
+    if( s_CreatedCount <= 0 ){
+        s_CreatedCount = 0;
+        BluetoothAudio::Instance().DeInitialize();
+    }
+}
 
 uint32_t BluetoothAudioSource::RemainDataCount() const
 {

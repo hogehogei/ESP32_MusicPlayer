@@ -122,6 +122,7 @@ void SDC_Drv_SPI::Initialize( uint32_t clockspeed_hz )
 	// 初期化済みなら一旦削除
 	if( m_IsInitialized ){
 		ESP_ERROR_CHECK( spi_bus_remove_device( m_SPIHandle ) );
+		ESP_ERROR_CHECK( spi_bus_free( HSPI_HOST ) );
 	}
 
     spi_bus_config_t buscfg = {};
@@ -145,6 +146,12 @@ void SDC_Drv_SPI::Initialize( uint32_t clockspeed_hz )
 	initialize_CS();
 
 	m_IsInitialized = true;
+}
+
+SDC_Drv_SPI* SDC_Drv_SPI::Instance()
+{
+	static SDC_Drv_SPI s_SDC_Drv_SPI;
+	return &s_SDC_Drv_SPI;
 }
 
 bool SDC_Drv_SPI::waitReady()

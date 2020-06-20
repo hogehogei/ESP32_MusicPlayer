@@ -1,6 +1,6 @@
 
-#ifndef SD_CARD_HPP
-#define SD_CARD_HPP
+#ifndef SD_CARD_HPP_INCLUDED
+#define SD_CARD_HPP_INCLUDED
 
 #include "I_SDC_Drv_SPI.hpp"
 
@@ -75,9 +75,22 @@ public:
     /**
      * @brief   状態取得
      * @retval  true    読み書きが可能
-     * @retval  false   状態が不正なため読み書きできない。Reset()をコールして再初期化することで読み書き可能になる。
+     * @retval  false   状態が不正なため読み書きできない。
      **/
     bool State() const;
+
+    /**
+     * @brief   初期化済みか調べる
+     * @retval  true    初期化済み
+     * @retvat  false   初期化に失敗している
+     **/
+    bool IsInitialized() const;
+
+    /**
+     * @brief   セクタ数を取得する
+     * @retval  Openしたメディアのセクタ数。アクセスできない場合は0を返す
+     **/
+    uint32_t SectorCount() const;
 
     static constexpr uint32_t sk_SectorSize         = 512;      //! セクタサイズ
 
@@ -99,6 +112,8 @@ private:
 
     uint8_t initialize_SDv2();
     uint8_t initialize_SDv1_or_MMCv3();
+    void printSDCardInfo();
+    void readSectorSize();
     uint8_t sendCmd( uint8_t cmd, uint32_t arg );
     uint8_t sendCmdRetry( uint8_t cmd, uint32_t arg, uint16_t retry_cnt );
 
@@ -117,6 +132,7 @@ private:
     bool            m_SDC_State;
     bool            m_IsWriteOpeProcessing;     //! 書き込み処理開始フラグ
     uint8_t         m_CardType;
+    uint32_t        m_SectorCount;              //! SDカードのセクタ数
 };
 
-#endif      // SD_CARD_HPP
+#endif      // SD_CARD_HPP_INCLUDED

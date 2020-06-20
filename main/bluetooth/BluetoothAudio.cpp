@@ -59,6 +59,23 @@ void BluetoothAudio::Initialize()
     m_IsInitialized = true;
 }
 
+bool BluetoothAudio::IsInitialized() const
+{
+    return m_IsInitialized;
+}
+
+void BluetoothAudio::DeInitialize()
+{
+    ESP_LOGD(LogTagName::sk_BT_AV, "%s deinitialize Bluetooth AV Protocols.", __func__);
+
+    ESP_ERROR_CHECK( esp_avrc_tg_deinit() );
+    ESP_ERROR_CHECK( esp_a2d_sink_deinit() );
+    ESP_ERROR_CHECK( esp_bluedroid_disable() );
+    ESP_ERROR_CHECK( esp_bluedroid_deinit() );
+    ESP_ERROR_CHECK( esp_bt_controller_disable() );
+    ESP_ERROR_CHECK( esp_bt_controller_deinit() );
+}
+
  BluetoothAudio& BluetoothAudio::Instance()
  {
      static BluetoothAudio s_BT_Instance;

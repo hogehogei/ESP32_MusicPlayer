@@ -1,6 +1,6 @@
 
-#ifndef   EXLIB_ENDIAN_HPP
-#define   EXLIB_ENDIAN_HPP
+#ifndef   EXLIB_ENDIAN_HPP_INCLUDED
+#define   EXLIB_ENDIAN_HPP_INCLUDED
 
 #include <stdint.h>
 #include <algorithm>
@@ -126,6 +126,6 @@ T ReverseEndian( T value )
 }
 
 
-#endif   // EXLIB_ENDIAN_HPP
+#endif   // EXLIB_ENDIAN_HPP_INCLUDED
 
 

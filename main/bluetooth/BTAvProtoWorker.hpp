@@ -1,6 +1,6 @@
 
-#ifndef    BT_AV_PROTO_WORKER_HPP
-#define    BT_AV_PROTO_WORKER_HPP
+#ifndef    BT_AV_PROTO_WORKER_HPP_INCLUDED
+#define    BT_AV_PROTO_WORKER_HPP_INCLUDED
 
 #include "I_BTAppEventWorker.hpp"
 
@@ -50,4 +50,4 @@ private:
     esp_avrc_tg_cb_param_t m_Param;
 };
 
-#endif      // BT_AV_PROTO_WORKER_HPP
+#endif      // BT_AV_PROTO_WORKER_HPP_INCLUDED

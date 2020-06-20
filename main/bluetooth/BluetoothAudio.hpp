@@ -1,6 +1,6 @@
 
-#ifndef    BLUETOOTH_AUDIO_HPP
-#define    BLUETOOTH_AUDIO_HPP
+#ifndef    BLUETOOTH_AUDIO_HPP_INCLUDED
+#define    BLUETOOTH_AUDIO_HPP_INCLUDED
 
 #include <cstdint>
 
@@ -25,6 +25,8 @@ public:
     BluetoothAudio& operator=( const BluetoothAudio& ) = delete;
 
     void Initialize();
+    bool IsInitialized() const;
+    void DeInitialize();
     static BluetoothAudio& Instance();
 
     uint32_t RemainDataCount() const;
@@ -64,4 +66,4 @@ private:
     StreamInfo   m_SBCConfiguraiton;
 };
 
-#endif    // BLUETOOTH_AUDIO_HPP
+#endif    // BLUETOOTH_AUDIO_HPP_INCLUDED

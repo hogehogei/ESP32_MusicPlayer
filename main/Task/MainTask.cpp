@@ -2,7 +2,6 @@
 #include "MainTask.hpp"
 
 #include <memory>
-#include "AudioPlayer.hpp"
 
 // 
 //  FreeRTOS headers
@@ -10,20 +9,46 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 
+//
+//  original headers
+//
+#include "InputTask.hpp"
+#include "AudioPlayer.hpp"
+#include "ButtonInput.hpp"
+
+//
+//  type definitions
+//
+enum PlayerType
+{
+    PlayerType_BT,
+    PlayerType_SDC,
+};
+
 // 
 //  static variables
 //
-static std::unique_ptr<AudioPlayer> s_AudioPlayer;
+static std::unique_ptr<I_AudioPlayer> s_AudioPlayer;
+static PlayerType s_PlayerType = PlayerType_SDC;
 
 extern "C"
 {
 
 void MusicTask( void* param )
 {
-    s_AudioPlayer = std::unique_ptr<AudioPlayer>( new AudioPlayer(AudioPlayer::AudioSrc_Bluetooth) );
-    const int delay_ms = 1;
+    s_AudioPlayer = std::unique_ptr<AudioPlayerFromSD>( new AudioPlayerFromSD() );
+    ButtonInput& input = ButtonInput::Instance();
     
     while( 1 ){
+        if( input.ChangePlayerButtonPressed() ){
+            if( s_PlayerType == PlayerType_BT ){
+                s_AudioPlayer = std::unique_ptr<AudioPlayerFromSD>( new AudioPlayerFromSD() );
+            }
+            else if( s_PlayerType == PlayerType_SDC ){
+                s_AudioPlayer = std::unique_ptr<AudioPlayerFromBT>( new AudioPlayerFromBT() );
+            }
+        }
+
         s_AudioPlayer->Update();
     }
 }

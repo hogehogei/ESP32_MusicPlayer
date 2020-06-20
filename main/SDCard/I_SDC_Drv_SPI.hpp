@@ -1,6 +1,6 @@
 
-#ifndef I_SDC_DRV_SPI_HPP
-#define I_SDC_DRV_SPI_HPP
+#ifndef I_SDC_DRV_SPI_HPP_INCLUDED
+#define I_SDC_DRV_SPI_HPP_INCLUDED
 
 #include <stdint.h>
 
@@ -61,4 +61,4 @@ public:
     virtual void Initialize( uint32_t clock_speed_hz ) = 0;
 };
 
-#endif      // I_SDC_DRV_SPI_HPP
+#endif      // I_SDC_DRV_SPI_HPP_INCLUDED

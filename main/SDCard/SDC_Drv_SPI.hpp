@@ -1,6 +1,6 @@
 
-#ifndef SDC_DRV_SPI_HPP
-#define SDC_DRV_SPI_HPP
+#ifndef SDC_DRV_SPI_HPP_INCLUDED
+#define SDC_DRV_SPI_HPP_INCLUDED
 
 #include "I_SDC_Drv_SPI.hpp"
 #include "driver/gpio.h"
@@ -67,12 +67,12 @@ public:
 
 private:
 
-    static constexpr int sk_MISO_IONum = 12;
+    static constexpr int sk_MISO_IONum = 27;
     static constexpr int sk_MOSI_IONum = 13;
     static constexpr int sk_SCLK_IONum = 14;
-    static constexpr gpio_num_t sk_CS_IONum = GPIO_NUM_27;
+    static constexpr gpio_num_t sk_CS_IONum = GPIO_NUM_26;
     static constexpr int sk_MaxTransferSize = 1024;
-    static constexpr int sk_DMAChannel = 2;
+    static constexpr int sk_DMAChannel = 1;
 
     /**
      * @brief   コンストラクタ
@@ -91,4 +91,4 @@ private:
     bool                m_IsInitialized;         //!  初期化済みフラグ
 };
 
-#endif      // SDC_DRV_SPI_HPP
+#endif      // SDC_DRV_SPI_HPP_INCLUDED

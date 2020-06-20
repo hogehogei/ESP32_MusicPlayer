@@ -1,5 +1,5 @@
-#ifndef     BLUETOOTH_AUDIO_SOURCE_HPP
-#define     BLUETOOTH_AUDIO_SOURCE_HPP
+#ifndef     BLUETOOTH_AUDIO_SOURCE_HPP_INCLUDED
+#define     BLUETOOTH_AUDIO_SOURCE_HPP_INCLUDED
 
 #include "I_AudioSource.hpp"
 #include "StreamInfo.hpp"
@@ -13,10 +13,11 @@ public:
 
     virtual uint32_t RemainDataCount() const override;
     virtual uint32_t Read( uint8_t* dst, uint32_t len ) override;
-    virtual StreamInfo GetStreamInfo() const override;
+    StreamInfo GetStreamInfo() const;
 
 private:
 
+    static int s_CreatedCount;
 };
 
-#endif      // BLUETOOTH_AUDIO_SOURCE_HPP
+#endif      // BLUETOOTH_AUDIO_SOURCE_HPP_INCLUDED

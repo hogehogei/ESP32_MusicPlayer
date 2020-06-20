@@ -4,17 +4,13 @@
 
 #include <memory>
 #include "I_AudioSource.hpp"
+#include "I_AudioPlayer.hpp"
+#include "BluetoothAudioSource.hpp"
+#include "SDCAudioSource.hpp"
 #include "AudioDrvOut.hpp"
 
-class AudioPlayer
+class AudioPlayerFromSD : public I_AudioPlayer
 {
-public:
-
-    enum AudioSourceMode 
-    {
-        AudioSrc_Bluetooth,
-        AudioSrc_SDC,
-    };
 
     enum PlayingMode
     {
@@ -25,19 +21,45 @@ public:
 
 public:
 
-    AudioPlayer( AudioSourceMode srcmode );
-    ~AudioPlayer() noexcept;
+    AudioPlayerFromSD();
+    ~AudioPlayerFromSD() noexcept;
 
-    AudioPlayer( const AudioPlayer& ) = delete;
-    AudioPlayer& operator=( const AudioPlayer& ) = delete;
+    AudioPlayerFromSD( const AudioPlayerFromSD& ) = delete;
+    AudioPlayerFromSD& operator=( const AudioPlayerFromSD& ) = delete;
 
     void Update();
 
 private:
 
-    I_AudioSource* createAudioSource( AudioSourceMode srcmode );
+    std::unique_ptr<SDCAudioSource> m_AudioSrc;
+    std::unique_ptr<AudioDrvOut>   m_AudioOut;
+    PlayingMode                    m_Mode;
+};
 
-    std::unique_ptr<I_AudioSource> m_AudioSrc;
+class AudioPlayerFromBT : public I_AudioPlayer
+{
+public:
+
+    enum PlayingMode
+    {
+        Mode_Stop,
+        Mode_Pause,
+        Mode_Playing,
+    };
+
+public:
+
+    AudioPlayerFromBT();
+    ~AudioPlayerFromBT() noexcept;
+
+    AudioPlayerFromBT( const AudioPlayerFromBT& ) = delete;
+    AudioPlayerFromBT& operator=( const AudioPlayerFromBT& ) = delete;
+
+    void Update();
+
+private:
+
+    std::unique_ptr<BluetoothAudioSource> m_AudioSrc;
     std::unique_ptr<AudioDrvOut>   m_AudioOut;
     PlayingMode                    m_Mode;
 };
