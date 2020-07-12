@@ -7,7 +7,7 @@ class I_AudioPlayer
 public:
 
     I_AudioPlayer() {}
-    virtual ~I_AudioPlayer() {}
+    virtual ~I_AudioPlayer() noexcept {}
 
     virtual void Update() = 0;
 

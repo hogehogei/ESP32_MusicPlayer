@@ -21,7 +21,7 @@ public:
     bool Initialize();
 
     static inline constexpr char sk_RootDirectoryPath[] = "/root";
-    static inline constexpr char sk_DriveIdentifier[] = "Primary";
+    static inline constexpr char sk_DriveIdentifier[] = "";
 
 private:
 
@@ -46,6 +46,7 @@ public:
 
 private:
 
+    std::string           m_FilePath;
     std::shared_ptr<FILE> m_FileDiscriptor;
 };
 

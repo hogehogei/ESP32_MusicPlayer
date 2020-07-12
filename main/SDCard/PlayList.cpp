@@ -6,6 +6,7 @@
 #include <memory>
 
 // C standard lib
+#include <string.h>
 #include <dirent.h>
 
 PlayList::PlayList( const std::string& root_directory )
@@ -18,6 +19,11 @@ PlayList::PlayList( const std::string& root_directory )
     m_CurrentDir = &m_RootDir;
     m_CurrentDirFileList = m_CurrentDir->EntryList();
     m_CurrentFileIdx = searchFileIdx();
+
+    ESP_LOGI( "PlayList", "Show current directory" );
+    for( int i = 0; i < m_CurrentDirFileList.size(); ++i ){
+        ESP_LOGI( "PlayList", "%s", m_CurrentDirFileList[i]->FullPath().c_str() );
+    }
 }
 
 PlayList::~PlayList()
@@ -39,7 +45,7 @@ int PlayList::searchFileIdx()
 
 const std::string PlayList::Current() const
 {
-    return m_CurrentFileIdx != PlayList::sk_NoEntry ? m_CurrentDirFileList[m_CurrentFileIdx]->Name() : std::string();
+    return m_CurrentFileIdx != PlayList::sk_NoEntry ? m_CurrentDirFileList[m_CurrentFileIdx]->FullPath() : std::string();
 }
 
 const std::string PlayList::Next() 
@@ -125,29 +131,37 @@ DirectoryPath::DirectoryPath( I_FileEntry* parent, const std::string& directory_
     const std::string& fullpath = FullPath();
     DIR* dir = opendir( fullpath.c_str() );
 
-    if( dir != nullptr ){
-        while(1){
-            struct dirent* dent = readdir( dir );
-            if( dir == nullptr ){
-                break;
-            }
-            if( dent->d_name[0] == '\0' ){
-                break;
-            }
-            if( dent->d_name[0] == '.' ){
-                continue;
-            }
+    ESP_LOGI( "DirectoryPath", "opendir: %s", fullpath.c_str() );
+    if( dir == nullptr ){
+        ESP_LOGI( "DirectoryPath", "opendir failed %d:\'%s\'", errno, strerror(errno) );
+        return;
+    }
 
-            if( dent->d_type & DT_DIR ){
-                I_FileEntryPtr new_ent = std::make_shared<DirectoryPath>( this, fullpath + std::string( dent->d_name ) );
-                m_DirectoryList.push_back( new_ent );
-            }
-            if( dent->d_type & DT_REG ){
-                I_FileEntryPtr new_ent = std::make_shared<FilePath>( this, fullpath + std::string( dent->d_name ) );
-                m_DirectoryList.push_back( new_ent );
-            }
+    while(1){
+        struct dirent* dent = readdir( dir );
+        if( dent == nullptr ){
+            break;
+        }
+        if( dent->d_name[0] == '\0' ){
+            break;
+        }
+        if( dent->d_name[0] == '.' ){
+            continue;
+        }
+
+        if( dent->d_type & DT_DIR ){
+            I_FileEntryPtr new_ent = std::make_shared<DirectoryPath>( this, std::string( dent->d_name ) );
+            ESP_LOGI( "DirectoryPath", "directory: %s", new_ent->FullPath().c_str() );
+            m_DirectoryList.push_back( new_ent );
+        }
+        if( dent->d_type & DT_REG ){
+            I_FileEntryPtr new_ent = std::make_shared<FilePath>( this, std::string( dent->d_name ) );
+            ESP_LOGI( "DirectoryPath", "file: %s", new_ent->FullPath().c_str() );
+            m_DirectoryList.push_back( new_ent );
         }
     }
+
+    closedir( dir );
 }
 
 DirectoryPath::~DirectoryPath()

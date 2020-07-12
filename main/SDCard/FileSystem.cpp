@@ -182,8 +182,16 @@ File::File()
 
 File::File( const std::string& filepath )
 : 
+    m_FilePath( filepath ),
     m_FileDiscriptor( fopen( filepath.c_str(), "rb" ), fclose )
-{}
+{
+    if( m_FileDiscriptor.get() ){
+        ESP_LOGI( "File", "FilePath: \'%s\' open succeeded", filepath.c_str() );
+    }
+    else {
+        ESP_LOGI( "File", "FilePath: \'%s\' open failed", filepath.c_str() ); 
+    }
+}
 
 File::~File()
 {}

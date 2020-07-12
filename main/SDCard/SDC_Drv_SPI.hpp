@@ -82,7 +82,7 @@ private:
     /**
      * @brief   デストラクタ
      **/
-    virtual ~SDC_Drv_SPI() noexcept;
+    virtual ~SDC_Drv_SPI() noexcept override;
 
     static void initialize_CS();
     bool waitReady();

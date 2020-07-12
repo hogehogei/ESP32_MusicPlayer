@@ -17,7 +17,7 @@
 #include "esp_spi_flash.h"
 
 #include "MainTask.hpp"
-#include "InputTask.hpp"
+#include "SubTask.hpp"
 #include "InitializeDrivers.hpp"
 
 //
@@ -32,9 +32,9 @@ static const int sk_MusicTaskStackSize = 1024 * 8;
 static const int sk_AppTaskPriority    = configMAX_PRIORITIES - 3;
 static xTaskHandle s_MusicTaskHandle;
 
-static const int sk_InputTaskStackSize = 1024 * 1;
-static const int sk_InputTaskPriority  = configMAX_PRIORITIES - 3;
-static xTaskHandle s_InputTaskHandle;
+static const int sk_SubTaskStackSize = 1024 * 4;
+static const int sk_SubTaskPriority  = configMAX_PRIORITIES - 3;
+static xTaskHandle s_SubTaskHandle;
 
 void app_main()
 {
@@ -67,9 +67,9 @@ void app_main()
 static void InvokeMainTask( void )
 {
     xTaskCreate( MusicTask, "MusicTask", sk_MusicTaskStackSize, NULL, sk_AppTaskPriority, &s_MusicTaskHandle );
-    xTaskCreate( InputTask, "Input", sk_InputTaskStackSize, NULL, sk_InputTaskPriority, &s_InputTaskHandle );
+    xTaskCreate( SubTask_10ms, "SubTask_10ms", sk_SubTaskStackSize, NULL, sk_SubTaskPriority, &s_SubTaskHandle );
 
-    const int maintask_interval = 10;
+    const int maintask_interval = 1000;
     while( 1 ) {
         vTaskDelay( maintask_interval / portTICK_RATE_MS );
     }

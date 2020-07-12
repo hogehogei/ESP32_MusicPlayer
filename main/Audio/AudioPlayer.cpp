@@ -10,7 +10,9 @@ AudioPlayerFromSD::AudioPlayerFromSD()
  : m_AudioSrc( std::unique_ptr<SDCAudioSource>( new SDCAudioSource() ) ),
    m_AudioOut( std::unique_ptr<AudioDrvOut>( new AudioDrvOut() ) ),
    m_Mode( Mode_Stop )
-{}
+{
+    ESP_LOGI( "AudioPlayerFromSD", "Create SDC AudioPlayer." );
+}
 
 AudioPlayerFromSD::~AudioPlayerFromSD()
 {}
@@ -40,7 +42,9 @@ AudioPlayerFromBT::AudioPlayerFromBT()
  : m_AudioSrc( std::unique_ptr<BluetoothAudioSource>( new BluetoothAudioSource() )),
    m_AudioOut( std::unique_ptr<AudioDrvOut>( new AudioDrvOut() )),
    m_Mode( Mode_Stop )
-{}
+{
+    ESP_LOGI( "AudioPlayerFromBT", "Create Bluetooth AudioPlayer." );
+}
 
 AudioPlayerFromBT::~AudioPlayerFromBT()
 {}

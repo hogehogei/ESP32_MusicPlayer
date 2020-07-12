@@ -14,9 +14,9 @@ class BT_A2DP_Worker : public I_BTAppEventWorker
 public:
 
     BT_A2DP_Worker( esp_a2d_cb_event_t event, esp_a2d_cb_param_t* param );
-    virtual ~BT_A2DP_Worker() noexcept;
+    virtual ~BT_A2DP_Worker() noexcept override;
 
-    virtual bool Invoke();
+    virtual bool Invoke() override;
 
 private:
 
@@ -32,9 +32,9 @@ class BT_AVRCPTarget_Worker : public I_BTAppEventWorker
 public:
 
     BT_AVRCPTarget_Worker( esp_avrc_tg_cb_event_t event, esp_avrc_tg_cb_param_t *param );
-    virtual ~BT_AVRCPTarget_Worker() noexcept;
+    virtual ~BT_AVRCPTarget_Worker() noexcept override;
 
-    virtual bool Invoke();
+    virtual bool Invoke() override;
 
 private:
 

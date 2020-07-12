@@ -22,12 +22,12 @@ class AudioPlayerFromSD : public I_AudioPlayer
 public:
 
     AudioPlayerFromSD();
-    ~AudioPlayerFromSD() noexcept;
+    ~AudioPlayerFromSD() noexcept override;
 
     AudioPlayerFromSD( const AudioPlayerFromSD& ) = delete;
     AudioPlayerFromSD& operator=( const AudioPlayerFromSD& ) = delete;
 
-    void Update();
+    virtual void Update() override;
 
 private:
 
@@ -50,12 +50,12 @@ public:
 public:
 
     AudioPlayerFromBT();
-    ~AudioPlayerFromBT() noexcept;
+    ~AudioPlayerFromBT() noexcept override;
 
     AudioPlayerFromBT( const AudioPlayerFromBT& ) = delete;
     AudioPlayerFromBT& operator=( const AudioPlayerFromBT& ) = delete;
 
-    void Update();
+    virtual void Update() override;
 
 private:
 

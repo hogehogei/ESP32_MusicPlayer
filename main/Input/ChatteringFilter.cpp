@@ -8,7 +8,7 @@ ChatteringFilter::ChatteringFilter( uint32_t on_cnt, uint32_t off_cnt, bool on_l
     m_Cnt( 0 ),
     mk_OnLevel( on_level ),
     m_InputSignal( initial_level ),
-    m_Sts( initial_level ),
+    m_Sts( initial_level == on_level ),
     m_RisingEdg( false ),
     m_FallingEdg( false )
 {}

@@ -114,7 +114,7 @@ private:
     
     bool setClock();
 
-    static constexpr int sk_SPIClockSpeed_Hz = 8000000;             // 8MHz
+    static constexpr int sk_SPIClockSpeed_Hz = 6000000;             // 6MHz
     static constexpr int sk_SPIClockSpeedInitialize_Hz = 1000000;   // 1MHz
     static constexpr uint8_t sk_SCI_ReadInstruction  = 0x03;
     static constexpr uint8_t sk_SCI_WriteInstruction = 0x02;

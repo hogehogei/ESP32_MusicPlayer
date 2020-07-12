@@ -6,8 +6,6 @@
 // esp32 headers
 #include "esp_system.h"
 #include "esp_log.h"
-#include "nvs.h"
-#include "nvs_flash.h"
 
 #include "esp_bt.h"
 #include "esp_bt_main.h"
@@ -35,17 +33,8 @@ void BluetoothAudio::Initialize()
         return;
     }
 
-    esp_err_t err = nvs_flash_init();
-    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        ESP_ERROR_CHECK(nvs_flash_erase());
-        err = nvs_flash_init();
-    }
-    ESP_ERROR_CHECK(err);
-    ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_BLE));
-
     esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
 	ESP_ERROR_CHECK( esp_bt_controller_init(&bt_cfg) );
-
 	ESP_ERROR_CHECK( esp_bt_controller_enable(ESP_BT_MODE_CLASSIC_BT) );
 	ESP_ERROR_CHECK( esp_bluedroid_init() );
 	ESP_ERROR_CHECK( esp_bluedroid_enable() );
@@ -66,14 +55,32 @@ bool BluetoothAudio::IsInitialized() const
 
 void BluetoothAudio::DeInitialize()
 {
-    ESP_LOGD(LogTagName::sk_BT_AV, "%s deinitialize Bluetooth AV Protocols.", __func__);
-
+    ESP_LOGI(LogTagName::sk_BT_AV, "Deinitialize Bluetooth AV Protocols." );
+    esp_bt_gap_set_scan_mode(ESP_BT_NON_CONNECTABLE, ESP_BT_NON_DISCOVERABLE);
     ESP_ERROR_CHECK( esp_avrc_tg_deinit() );
     ESP_ERROR_CHECK( esp_a2d_sink_deinit() );
+
     ESP_ERROR_CHECK( esp_bluedroid_disable() );
+    ESP_LOGI(LogTagName::sk_BT_AV, "esp_bluedroid_disable" );
+    while( esp_bluedroid_get_status() == ESP_BLUEDROID_STATUS_ENABLED );
     ESP_ERROR_CHECK( esp_bluedroid_deinit() );
+    ESP_LOGI(LogTagName::sk_BT_AV, "esp_bluedroid_deinit" );
+    while( esp_bluedroid_get_status() == ESP_BLUEDROID_STATUS_INITIALIZED );
     ESP_ERROR_CHECK( esp_bt_controller_disable() );
+    ESP_LOGI(LogTagName::sk_BT_AV, "esp_bt_controller_disable" );
+    while( esp_bt_controller_get_status() == ESP_BT_CONTROLLER_STATUS_ENABLED );
     ESP_ERROR_CHECK( esp_bt_controller_deinit() );
+    ESP_LOGI(LogTagName::sk_BT_AV, "esp_bt_controller_deinit" );
+    while( esp_bt_controller_get_status() == ESP_BT_CONTROLLER_STATUS_INITED );
+    ESP_LOGI( LogTagName::sk_BT_AV, "Deinitialize Bluetooth AV Protocols complete." );
+
+
+    ESP_LOGI( LogTagName::sk_BT_AV, "BT Task killed." );
+    vQueueDelete( m_BT_AppTaskQueue );
+    vTaskDelete( m_BT_AppTaskHandle );
+    ESP_LOGI( LogTagName::sk_BT_AV, "BT Task killed complete." );
+
+    m_IsInitialized = false;
 }
 
  BluetoothAudio& BluetoothAudio::Instance()
@@ -110,7 +117,7 @@ void BluetoothAudio::startBT_Task()
 
 void BluetoothAudio::startBT_AVProtocols()
 {
-    ESP_LOGD(LogTagName::sk_BT_AV, "%s setup Bluetooth AV Protocols.", __func__);
+    ESP_LOGI( LogTagName::sk_BT_AV, "%s setup Bluetooth AV Protocols.", __func__ );
 
 	/* set up device name */
 	esp_bt_dev_set_device_name( sk_DeviceName );
@@ -136,8 +143,8 @@ void BluetoothAudio::BT_AppTask( void* param )
 {
     I_BTAppEventWorker* worker = nullptr;
     BluetoothAudio& instance = BluetoothAudio::Instance();
-    for (;;) {
-        if( xQueueReceive( instance.m_BT_AppTaskQueue, &worker, (portTickType)portMAX_DELAY ) == pdTRUE ){
+    while( 1 ) {
+        if( xQueueReceive( instance.m_BT_AppTaskQueue, &worker, 0 ) == pdTRUE ){
             if( worker ){
                 ESP_LOGI(LogTagName::sk_BT_AV, "(%s) call worker function addr->(%X)", __func__, reinterpret_cast<unsigned>(worker));
                 worker->Invoke();
@@ -145,6 +152,9 @@ void BluetoothAudio::BT_AppTask( void* param )
 
             delete worker;
         }
+
+        // WDTタイマークリア
+        vTaskDelay(1);
     }
 }
 

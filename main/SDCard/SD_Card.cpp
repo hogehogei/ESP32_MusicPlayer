@@ -58,9 +58,9 @@ static constexpr uint8_t sk_SDC_InitDelay_ms    = 100;              //! SDC初�
 static constexpr int sk_SDC_InitSCLK            = 10;               //! SDC初期化カウント[x8 clock]
 static constexpr uint16_t sk_SDC_TimeOut_ms     = 1000;             //! SDCコマンドタイムアウト[ms]
 
-static constexpr uint16_t sk_CMD_RespRetry          = 8192;         //! コマンドレスポンス読み出しリトライ回数
-static constexpr uint16_t sk_DataPktReadWait        = 8192;         //! データパケットトークン読み出しリトライ回数
-static constexpr uint16_t sk_WriteBusyCheckRetry    = 8192;         //! 書き込みビジーチェックリトライ回数
+static constexpr int sk_CMD_RespRetry           = 8192;             //! コマンドレスポンス読み出しリトライ回数
+static constexpr int sk_DataPktReadWait         = 8192;             //! データパケットトークン読み出しリトライ回数
+static constexpr int sk_WriteBusyCheckRetry     = 8192;             //! 書き込みビジーチェックリトライ回数
 
 void showResp( const uint8_t resp );
 
@@ -87,8 +87,10 @@ SD_Card::~SD_Card()
 
 bool SD_Card::Initialize( I_SDC_Drv_SPI* driver )
 {
-    // SDカード状態を有効で初期化
-    m_SDC_State = true;
+    // 初期化済み、かつ正常動作中なら何もしない。
+    if( m_SDC_State == true ){
+        return true;
+    }
 
     // ドライバインターフェースを設定
     if( !driver ){
@@ -99,51 +101,26 @@ bool SD_Card::Initialize( I_SDC_Drv_SPI* driver )
 
     // SDカードドライバ初期化
     m_SDC_Drv->Initialize( sk_ClockSpeedHz_Initializing );
-    // CSをHレベルに設定
-    m_SDC_Drv->Release();
-    // DIはハードでプルアップしているので処理なし
-
-    // 1ms以上待つ
-    const TickType_t xDelayMs = 10 / portTICK_PERIOD_MS;
-    vTaskDelay( xDelayMs );
-
-    for( int i = 0; i < sk_SDC_InitSCLK; ++i ){
-        // SPI 初期化クロック送信
-        uint8_t t = 0xFF;
-        m_SDC_Drv->send( &t, 1 );
+    sendInitializeClock();              // 初期化クロック送信
+    m_CardType = initialize_Card();     // カード初期化
+    // SPIの速度再設定
+    m_SDC_Drv->Initialize( sk_ClockSpeedHz_AccessSD );
+    
+    if( m_CardType == sk_SDC_Type_None ){
+        m_SDC_State = false;
     }
-    // 初期化開始
-
-    uint8_t type = sk_SDC_Type_None;
-    // CMD0 初期化コマンド送信
-    if( sendCmd( sk_CMD0, 0 ) == sk_CMD_RES_InIdleState ){
-        // CMD8 SDv2 専用コマンドを送信して SDv2 かそれ以外かを確かめる
-        if( sendCmd( sk_CMD8, 0x1AA ) == sk_CMD_RES_InIdleState ){
-            // SDv2
-            type = initialize_SDv2();
-        }
-        else {
-            // CMD8 がリジェクトされたので SDv1/MMC の初期化を試す
-            type = initialize_SDv1_or_MMCv3();
-        }
+    else {
+        // セクタサイズ読み込み
+        readSectorSize();
+        m_SDC_State = true;
     }
 
     // 初期化終了
     m_SDC_Drv->Release();
-    // SPIの速度再設定
-    m_SDC_Drv->Initialize( sk_ClockSpeedHz_AccessSD );
-    
-    // セクタサイズ読み込み
-    readSectorSize();
+
     printSDCardInfo();
 
-    if( type == sk_SDC_Type_None ){
-        m_SDC_State = false;
-        return false;
-    }
-
-    m_CardType = type;
-    return true;
+    return m_SDC_State;
 }
 
 bool SD_Card::Read( uint8_t* dst, uint32_t sector, uint32_t offset, uint32_t len )
@@ -370,6 +347,62 @@ uint32_t SD_Card::SectorCount() const
 }
 
 /**
+ * @brief   初期化クロック送信
+ *          電源電圧が規定の範囲(2.7～3.6V)に達したあと少なくとも1ms待ち、
+ *          DI,CSをHレベルにしてSCLKを74クロック以上入れるとコマンドを受け付ける準備ができます。
+ **/
+void SD_Card::sendInitializeClock()
+{
+    // CSをHレベルに設定
+    m_SDC_Drv->Release();
+    // DIはハードでプルアップしているので処理なし
+
+    // 1ms以上待つ
+    const TickType_t xDelayMs = 10 / portTICK_PERIOD_MS;
+    vTaskDelay( xDelayMs );
+
+    for( int i = 0; i < sk_SDC_InitSCLK; ++i ){
+        // SPI 初期化クロック送信
+        uint8_t t = 0xFF;
+        m_SDC_Drv->send( &t, 1 );
+    }
+}
+
+/**
+ * @brief   カード初期化
+ * @return  type    初期化時に特定したカードタイプのビットをたてて返す。
+ *                  sk_SDC_Type_None   = 0;                    SDカードタイプ無し。初期化に失敗した時とかはこれ
+ *                  sk_SDC_Type_SD1    = (1 << 0);             SDカード = SDv1
+ *                  sk_SDC_Type_SD2    = (1 << 1);             SDカード = SDv2
+ *                  sk_SDC_Type_MMC    = (1 << 2);             SDカード = MMC
+ *                  sk_SDC_Block       = (1 << 3);             ブロックアクセス     1の場合はコマンドのアドレス指定はsector単位を用いる。
+ *                                                                                 0の場合はコマンドのアドレス指定はbyte単位。
+ **/
+uint8_t SD_Card::initialize_Card()
+{
+    // 初期化開始
+
+    uint8_t type = sk_SDC_Type_None;
+    // CMD0 初期化コマンド送信
+    if( sendCmd( sk_CMD0, 0 ) == sk_CMD_RES_InIdleState ){
+        ESP_LOGI( "SDCard", "CMD0 Respond." );
+        // CMD8 SDv2 専用コマンドを送信して SDv2 かそれ以外かを確かめる
+        if( sendCmd( sk_CMD8, 0x1AA ) == sk_CMD_RES_InIdleState ){
+            ESP_LOGI( "SDCard", "Initialize SDv2" );
+            // SDv2
+            type = initialize_SDv2();
+        }
+        else {
+            ESP_LOGI( "SDCard", "Initialize SDv1 or MMCv3" );
+            // CMD8 がリジェクトされたので SDv1/MMC の初期化を試す
+            type = initialize_SDv1_or_MMCv3();
+        }
+    }
+
+    return type;
+}
+
+/**
  * @brief   SDv2 初期化
  *          上位側でSDv2であるか判断する。
  * @return  SDカード情報
@@ -389,6 +422,7 @@ uint8_t SD_Card::initialize_SDv2()
 
         // OCR読み出しコマンド送信
         if( (res == sk_CMD_RES_OK) && (sendCmd( sk_CMD58, 0 ) == sk_CMD_RES_OK) ){
+            ESP_LOGI( "SDCard", "ACMD41/ACMD58 Respond." );
             // OCR受信
             m_SDC_Drv->recv( buf, sizeof(buf) );
 
@@ -419,12 +453,14 @@ uint8_t SD_Card::initialize_SDv1_or_MMCv3()
     // InIdleState もしくは OK が帰ってくるか確認
     res = sendCmd( sk_ACMD41, 0 );
     if( (res == sk_CMD_RES_InIdleState) || (res == sk_CMD_RES_OK) ){
+        ESP_LOGI( "SDCard", "SDv1 or MMCv3 : ACMD41 Respond." );
         // ACMD41が通った。CMD8は通らず SDv2 ではなかったので、SDv1
         cmd = sk_ACMD41;
         type = sk_SDC_Type_SD1;
     }
     else {
         // ACMD41がリジェクトされたので、MMCと仮定
+        ESP_LOGI( "SDCard", "SDv1 or MMCv3 : ACMD41 not respond." );
         cmd = sk_CMD1;
         type = sk_SDC_Type_MMC;
     }
@@ -489,14 +525,15 @@ void SD_Card::readSectorSize()
     // SDv1 と SDv2 でcsdレジスタの配置が違うので、読み分ける
     uint64_t sdcsize_byte = 0;
     if( (m_CardType & sk_SDC_Type_SD2) == sk_SDC_Type_SD2 ){
-        sdcsize_byte = csd_data[8] | (csd_data[7] << 8) | ((csd_data[6] & 0x3F)<< 16); 
-    }
+        uint64_t c_size = csd_data[9] | (csd_data[8] << 8) | ((csd_data[7] & 0x3F) << 16);
+        sdcsize_byte = (c_size + 1ULL) * 512ULL * 1024ULL;
+    } 
     else if( ((m_CardType & sk_SDC_Type_SD1) == sk_SDC_Type_SD1) ||
              ((m_CardType & sk_SDC_Type_MMC) == sk_SDC_Type_MMC) )
     {
-        uint64_t c_size = ((csd_data[7] & 0xC0) >> 6) | (csd_data[6] << 2) | ((csd_data[5] & 0x03) << 10);
-        uint64_t c_size_mult = ((csd_data[9] & 0x80) >> 7) | (csd_data[8] & 0x03);
-        uint64_t block_len = csd_data[7] & 0x0F;
+        uint64_t c_size = ((csd_data[8] & 0xC0) >> 6) | (csd_data[7] << 2) | ((csd_data[6] & 0x03) << 10);
+        uint64_t c_size_mult = ((csd_data[10] & 0x80) >> 7) | (csd_data[9] & 0x03);
+        uint64_t block_len = csd_data[8] & 0x0F;
 
         block_len = block_len == 0 ? 1 : block_len;
         sdcsize_byte = (c_size + 1) * (2ULL << (c_size_mult + 1)) * (2ULL << (block_len - 1));
@@ -549,8 +586,8 @@ uint8_t SD_Card::sendCmd( uint8_t cmd, uint32_t arg )
     m_SDC_Drv->send( buf, sizeof(buf) );
 
     // コマンドレスポンスを待つ
-    for( uint16_t i = 0; i < sk_CMD_RespRetry; ++i ){
-        m_SDC_Drv->recv( &res, 1 );
+    for( int i = 0; i < sk_CMD_RespRetry; ++i ){
+        res = recvByte();
 
         // コマンドレスポンスが帰ってくると、最上位ビットが0になる
         if( (res & 0x80) != 0x80 ){
@@ -570,20 +607,20 @@ uint8_t SD_Card::sendCmd( uint8_t cmd, uint32_t arg )
  * @return                  コマンドレスポンス一覧の値を返す
  * @note    リトライの間隔は1ms
  **/
-uint8_t SD_Card::sendCmdRetry( uint8_t cmd, uint32_t arg, uint16_t retry_cnt )
+uint8_t SD_Card::sendCmdRetry( uint8_t cmd, uint32_t arg, uint32_t retry_cnt )
 {
     uint8_t res = sk_CMD_RES_OK;
 
     // 設定された回数コマンド送信をリトライ
     // リトライの間隔は 1ms
-    for( uint16_t i = 0; i < retry_cnt; ++i ){
+    for( uint32_t i = 0; i < retry_cnt; ++i ){
         res = sendCmd( cmd, arg );
         if( res == sk_CMD_RES_OK ){
            break;
         }
 
         //HAL_Delay( 1 );		// 1ms待つ
-        const TickType_t xDelayMs = 10 / portTICK_PERIOD_MS;
+        const TickType_t xDelayMs = 1 / portTICK_PERIOD_MS;
         vTaskDelay( xDelayMs );
     }
 
@@ -649,11 +686,11 @@ bool SD_Card::nextSectorReadPreparation( Progress* progress )
  **/
 bool SD_Card::waitReadDataPacket()
 {
-    uint8_t token = 0;
+    uint32_t token = 0;
 
     //  データトークンを受信するまで待つ
-    for( uint16_t i = 0; i < sk_DataPktReadWait; ++i ){
-        m_SDC_Drv->recv( &token, 1 );
+    for( int i = 0; i < sk_DataPktReadWait; ++i ){
+        token = recvByte();
 
         if( token != 0xFF ){
         	break;
@@ -678,7 +715,7 @@ bool SD_Card::nextSectorWritePreparation()
     // CRC 2byte分送信
     sendAnyData( 2 );
     // データレスポンス受信
-    m_SDC_Drv->recv( &resp, 1 );
+    resp = recvByte();
 
     if( (resp & sk_DATA_RES_OK_Mask) == sk_DATA_RES_OK ){
         // ビジー解除待ち
@@ -704,6 +741,21 @@ void SD_Card::advanceNextSector( Progress* progress )
 }
 
 /**
+ * @brief   1バイト読み込み
+ **/
+uint8_t SD_Card::recvByte()
+{
+    // 受信バッファが4Byte境界にないと、ライブラリ側でメモリ確保＆コピーが発生し
+    // 処理にものすごく時間がかかる。
+    // ので、必ず4Byte境界に配置されるように uint32_t をキャストして使用
+    uint32_t buf = 0;
+    uint8_t* p = reinterpret_cast<uint8_t*>(&buf);
+
+    m_SDC_Drv->recv( p, 1 );
+    return *p;
+}
+
+/**
  * @brief   ビジー解除待ち
  **/
 void SD_Card::busyWait()
@@ -711,8 +763,8 @@ void SD_Card::busyWait()
     uint8_t busycheck = 0;
 
     // SDカード内部処理中はDOがLoになる（ビジー）ので、解除まで待つ
-    for( uint16_t i = 0; i < sk_WriteBusyCheckRetry; ++i ){
-        m_SDC_Drv->recv( &busycheck, 1 );
+    for( int i = 0; i < sk_WriteBusyCheckRetry; ++i ){
+        busycheck = recvByte();
         // 書き込み後、SDカードのDOがビジー解除されたらbreak
         if( busycheck == 0xFF ){
             break;
@@ -726,7 +778,7 @@ void SD_Card::busyWait()
  **/
 void SD_Card::ignoreRead( uint32_t cnt )
 {
-    uint8_t buf[32];
+    static uint8_t buf[32] __attribute__ ((aligned(4)));
     uint32_t len = cnt;
 
     while( len > 0 ){

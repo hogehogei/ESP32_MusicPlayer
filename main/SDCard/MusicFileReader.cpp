@@ -46,9 +46,13 @@ bool MusicFileReader::ReadBuffer::GetChunk( Chunk* chunk )
 
 bool MusicFileReader::ReadBuffer::readNewSector()
 {
-    uint32_t readlen = 0;
+    if( m_IsEOF ){
+        return false;
+    }
 
-    if( m_File.Read( m_Buffer, sk_SectorSize, &readlen ) ){
+    uint32_t readlen = 0;
+    if( !m_File.Read( m_Buffer, sk_SectorSize, &readlen ) ){
+        ESP_LOGE( "MusicFileReader", "Read sector failed." );
         m_IsEOF  = true;
         m_Length = 0;
         m_ReadIndex = 0;
@@ -58,6 +62,7 @@ bool MusicFileReader::ReadBuffer::readNewSector()
     if( m_File.IsEOF() ){
         m_IsEOF = true;
     }
+    
     m_Length    = readlen;
     m_ReadIndex = 0;
 
@@ -91,6 +96,7 @@ MusicFileReader::~MusicFileReader()
 bool MusicFileReader::OpenFile( const std::string& filepath )
 {
     m_File = File( filepath );
+    m_Buffer = ReadBuffer( m_File );
 
     return m_File.IsOpened();
 }

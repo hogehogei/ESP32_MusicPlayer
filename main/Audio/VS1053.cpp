@@ -128,7 +128,7 @@ bool VS1053_Drv_SPI::Recv( uint8_t* data, uint16_t len )
 			return false;
 		}
 		remain_len -= k_TxBufSize;
-		dstp += 16;
+		dstp += k_TxBufSize;
 	}
 	if( remain_len > 0 ){
 		trans.length    = remain_len * 8;
@@ -286,6 +286,10 @@ bool VS1053_Drv::Initialize()
     // デフォルトのボリュームをセット
     // 初期値は最大ボリュームなのである程度静かにしておく
     if( !SetVolume( sk_DefaultVolume, sk_DefaultVolume ) ){
+        return false;
+    }
+
+    if( !WriteSCI( SCI_BASS, 0x00FF ) ){
         return false;
     }
 

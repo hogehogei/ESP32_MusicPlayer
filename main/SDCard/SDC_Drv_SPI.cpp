@@ -60,7 +60,7 @@ bool SDC_Drv_SPI::send( const uint8_t* data, uint32_t len )
 	memset( &trans, 0, sizeof(spi_transaction_t) );
 	trans.length    = len * 8;
 	trans.tx_buffer = data;				// bit で指定
-	ret = spi_device_transmit( m_SPIHandle, &trans );
+	ret = spi_device_polling_transmit( m_SPIHandle, &trans );
 
 	return ret == ESP_OK;
 }
@@ -68,6 +68,11 @@ bool SDC_Drv_SPI::send( const uint8_t* data, uint32_t len )
 bool SDC_Drv_SPI::recv( uint8_t* data, uint32_t len )
 {
 	static spi_transaction_t trans;
+	// 受信時も 0xFF を送信するようにする。
+	// そうでないとSDカードが正しくコマンドのレスポンスを返してくれない。
+	static constexpr int sk_TxBufSize = 16;
+	static constexpr uint8_t sk_Txbuf[sk_TxBufSize] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+										               0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
 
 	// 送信できる最大長より長いサイズは送れない
 	if( len > std::numeric_limits<uint32_t>::max() / 8 ){
@@ -77,33 +82,28 @@ bool SDC_Drv_SPI::recv( uint8_t* data, uint32_t len )
 		return false;
 	}
 
-	// 受信時も 0xFF を送信するようにする。
-	// そうでないとSDカードが正しくコマンドのレスポンスを返してくれない。
-	constexpr int k_TxBufSize = 16;
-	uint8_t txbuf[k_TxBufSize] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-								  0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
 	uint32_t remain_len = len;
 	uint8_t* dstp = data;
 
 	memset( &trans, 0, sizeof(spi_transaction_t) );
 
-	while( remain_len >= k_TxBufSize ){
-		trans.length    = k_TxBufSize * 8;
-		trans.rxlength  = k_TxBufSize * 8;
-		trans.tx_buffer = txbuf;
+	while( remain_len >= sk_TxBufSize ){
+		trans.length    = sk_TxBufSize * 8;
+		trans.rxlength  = sk_TxBufSize * 8;
+		trans.tx_buffer = sk_Txbuf;
 		trans.rx_buffer = dstp;
-		if( spi_device_transmit( m_SPIHandle, &trans ) != ESP_OK ){
+		if( spi_device_polling_transmit( m_SPIHandle, &trans ) != ESP_OK ){
 			return false;
 		}
-		remain_len -= k_TxBufSize;
-		dstp += 16;
+		remain_len -= sk_TxBufSize;
+		dstp += sk_TxBufSize;
 	}
 	if( remain_len > 0 ){
 		trans.length    = remain_len * 8;
 		trans.rxlength  = remain_len * 8;
-		trans.tx_buffer = txbuf;
+		trans.tx_buffer = sk_Txbuf;
 		trans.rx_buffer = dstp;
-		if( spi_device_transmit( m_SPIHandle, &trans ) != ESP_OK ){
+		if( spi_device_polling_transmit( m_SPIHandle, &trans ) != ESP_OK ){
 			return false;
 		}
 	}

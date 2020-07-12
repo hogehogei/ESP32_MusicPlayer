@@ -48,4 +48,5 @@ bool SDCAudioSource::IsEOF() const
 void SDCAudioSource::NextEntry()
 {
     m_PlayList.Next();
+    m_FileReader.OpenFile( m_PlayList.Current() );
 }

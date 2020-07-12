@@ -96,8 +96,8 @@ public:
 
 private:
 
-    static constexpr uint32_t sk_ClockSpeedHz_Initializing = 200000;        // 200kHz
-    static constexpr uint32_t sk_ClockSpeedHz_AccessSD     = 1000000;       // 10MHz
+    static constexpr uint32_t sk_ClockSpeedHz_Initializing = 200000;         // 200kHz
+    static constexpr uint32_t sk_ClockSpeedHz_AccessSD     = 10000000;       // 10MHz
     class Progress
     {
     public:
@@ -110,12 +110,14 @@ private:
     };
 
 
+    void sendInitializeClock();
+    uint8_t initialize_Card();
     uint8_t initialize_SDv2();
     uint8_t initialize_SDv1_or_MMCv3();
     void printSDCardInfo();
     void readSectorSize();
     uint8_t sendCmd( uint8_t cmd, uint32_t arg );
-    uint8_t sendCmdRetry( uint8_t cmd, uint32_t arg, uint16_t retry_cnt );
+    uint8_t sendCmdRetry( uint8_t cmd, uint32_t arg, uint32_t retry_cnt );
 
     bool readInitiate( Progress* progress, uint32_t sector, uint32_t offset, uint32_t len );
     bool nextSectorReadPreparation( Progress* progress );
@@ -123,6 +125,7 @@ private:
     bool nextSectorWritePreparation();
     void advanceNextSector( Progress* progress );
 
+    uint8_t recvByte();
     void busyWait();
     void ignoreRead( uint32_t cnt );
     void sendAnyData( uint32_t cnt );

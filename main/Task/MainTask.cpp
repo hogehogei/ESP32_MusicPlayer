@@ -12,7 +12,6 @@
 //
 //  original headers
 //
-#include "InputTask.hpp"
 #include "AudioPlayer.hpp"
 #include "ButtonInput.hpp"
 
@@ -41,15 +40,15 @@ void MusicTask( void* param )
     
     while( 1 ){
         if( input.ChangePlayerButtonPressed() ){
-            if( s_PlayerType == PlayerType_BT ){
-                s_AudioPlayer = std::unique_ptr<AudioPlayerFromSD>( new AudioPlayerFromSD() );
-            }
-            else if( s_PlayerType == PlayerType_SDC ){
+            if( s_PlayerType == PlayerType_SDC ){
                 s_AudioPlayer = std::unique_ptr<AudioPlayerFromBT>( new AudioPlayerFromBT() );
+                s_PlayerType  = PlayerType_BT;
             }
         }
 
         s_AudioPlayer->Update();
+
+        vTaskDelay( 1 );
     }
 }
 
