@@ -1,5 +1,6 @@
-# Hello World Example
+# ESP32 MusicPlayer sample
 
-Starts a FreeRTOS task to print "Hello World"
+: Read audio file from SD Card
+: Streaming PCM audio with Bluetooth classic
+: Play audio with VS1053b audio decoder
 
-See the README.md file in the upper level 'examples' directory for more information about examples.
