@@ -14,6 +14,7 @@
 //
 #include "AudioPlayer.hpp"
 #include "ButtonInput.hpp"
+#include "VS1053.hpp"
 
 //
 //  type definitions
@@ -54,6 +55,10 @@ void MusicTask( void* param )
                     goto MUSIC_TASK_FAILED;
                 }
 
+                if( !VS1053_Drv::Instance().Initialize() ){
+                    goto MUSIC_TASK_FAILED;
+                }
+                
                 s_AudioPlayer = std::move( sdplayer );
                 s_PlayerType  = PlayerType_SDC;
             }

@@ -59,6 +59,7 @@ private:
     void initialize_AudioReset( gpio_num_t ionum );
 
     spi_device_handle_t m_SPIHandle;             //!  ESP32 SPIハンドル
+    bool m_IsInitialized;
 };
 
 class VS1053_Drv

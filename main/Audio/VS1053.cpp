@@ -8,6 +8,8 @@
 // esp headers
 #include "esp_log.h"
 
+#include <esp32/rom/ets_sys.h>
+
 static constexpr uint32_t sk_SPI_Send_Timeout = 1000;
 static constexpr uint32_t sk_SPI_Recv_Timeout = 1000;
 static constexpr uint32_t sk_Busy_Timeout = 1000;
@@ -15,6 +17,7 @@ static constexpr uint32_t sk_Busy_Timeout = 1000;
 VS1053_Drv_SPI VS1053_Drv_SPI::s_Driver;
 
 VS1053_Drv_SPI::VS1053_Drv_SPI()
+    : m_IsInitialized( false )
 {}
 
 VS1053_Drv_SPI::~VS1053_Drv_SPI()
@@ -38,13 +41,12 @@ void VS1053_Drv_SPI::Initialize( uint32_t spi_freq )
     initialize_DReq( sk_DReq_IONum );
     // Audio Reset pin 初期化
     initialize_AudioReset( sk_AudioReset_IONum );
+
+    m_IsInitialized = true;
 }
 
 void VS1053_Drv_SPI::ResetSPI( uint32_t spi_freq )
 {
-    ESP_ERROR_CHECK( spi_bus_remove_device( m_SPIHandle ) );
-    ESP_ERROR_CHECK( spi_bus_free( VSPI_HOST ) );
-
     initialize_SPI( spi_freq );
 }
 
@@ -176,6 +178,11 @@ void VS1053_Drv_SPI::initialize_SPI( uint32_t spi_freq )
     devcfg.spics_io_num = -1;                     //CS pin
     devcfg.queue_size = 1;                        //We want to be able to queue 1 transactions at a time
 
+    if( m_IsInitialized ){
+        ESP_ERROR_CHECK( spi_bus_remove_device( m_SPIHandle ) );
+        ESP_ERROR_CHECK( spi_bus_free( VSPI_HOST ) );
+    }
+
 	ESP_ERROR_CHECK( spi_bus_initialize( VSPI_HOST, &buscfg, sk_DMAChannel ) );
 	ESP_ERROR_CHECK( spi_bus_add_device( VSPI_HOST, &devcfg, &m_SPIHandle ) );
 }
@@ -250,11 +257,14 @@ VS1053_Drv& VS1053_Drv::Instance()
 
 bool VS1053_Drv::Initialize()
 {
-    if( m_IsInitialized ){
-        return false;
-    }
+    m_IsInitialized = false;
 
     VS1053_Drv_SPI& driver = VS1053_Drv_SPI::Instance();
+
+    // VS1053bをRESETピンでハードウェアリセット
+    driver.AssertReset();
+    ets_delay_us( 100 * 1000 );
+
     // 初期化時のSPI速度で設定
     driver.Initialize( sk_SPIClockSpeedInitialize_Hz );
     driver.DeassertReset();
