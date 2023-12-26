@@ -1,7 +1,7 @@
 
 #include "InitializeDrivers.hpp"
-#include "SDCard/FileSystem.hpp"
-#include "Audio/VS1053.hpp"
+#include "../SDCard/FileSystem.hpp"
+#include "../Audio/VS1053.hpp"
 
 // esp-idf headers
 #include "nvs.h"

@@ -28,21 +28,21 @@ enum PlayerType
 //  static variables
 //
 static std::unique_ptr<I_AudioPlayer> s_AudioPlayer;
-static PlayerType s_PlayerType = PlayerType_SDC;
+static PlayerType s_PlayerType = PlayerType_BT;
 
 extern "C"
 {
 
 void MusicTask( void* param )
 {
-    s_AudioPlayer = std::unique_ptr<AudioPlayerFromSD>( new AudioPlayerFromSD() );
+    s_AudioPlayer = std::unique_ptr<AudioPlayerFromBT>( new AudioPlayerFromBT() );
     ButtonInput& input = ButtonInput::Instance();
     
     while( 1 ){
         if( input.ChangePlayerButtonPressed() ){
-            if( s_PlayerType == PlayerType_SDC ){
-                s_AudioPlayer = std::unique_ptr<AudioPlayerFromBT>( new AudioPlayerFromBT() );
-                s_PlayerType  = PlayerType_BT;
+            if( s_PlayerType == PlayerType_BT ){
+                s_AudioPlayer = std::unique_ptr<AudioPlayerFromSD>( new AudioPlayerFromSD() );
+                s_PlayerType  = PlayerType_SDC;
             }
         }
 
