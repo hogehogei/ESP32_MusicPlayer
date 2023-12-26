@@ -8,22 +8,34 @@
 int BluetoothAudioSource::s_CreatedCount = 0;
 
 BluetoothAudioSource::BluetoothAudioSource()
-{
-    if( !BluetoothAudio::Instance().IsInitialized() ){
-        BluetoothAudio::Instance().Initialize();
-    }
-
-    ++s_CreatedCount;
-}
+    : m_Initialized( false )
+{}
 
 BluetoothAudioSource::~BluetoothAudioSource()
-{   
-    --s_CreatedCount;
+{
+    if( m_Initialized == true ){
+        --s_CreatedCount;
 
-    if( s_CreatedCount <= 0 ){
-        s_CreatedCount = 0;
-        BluetoothAudio::Instance().DeInitialize();
+        if( s_CreatedCount <= 0 ){
+            s_CreatedCount = 0;
+            BluetoothAudio::Instance().DeInitialize();
+        }
     }
+}
+
+bool BluetoothAudioSource::Initialize()
+{
+    bool result = true;
+
+    if( !BluetoothAudio::Instance().IsInitialized() ){
+        result = BluetoothAudio::Instance().Initialize();
+    }
+
+    if( result ){
+        ++s_CreatedCount;
+    }
+
+    return result;
 }
 
 uint32_t BluetoothAudioSource::RemainDataCount() const

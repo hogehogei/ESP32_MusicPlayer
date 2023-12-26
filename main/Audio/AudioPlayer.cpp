@@ -17,6 +17,11 @@ AudioPlayerFromSD::AudioPlayerFromSD()
 AudioPlayerFromSD::~AudioPlayerFromSD()
 {}
 
+bool AudioPlayerFromSD::Initialize()
+{
+    return m_AudioSrc->IsGood();
+}
+
 void AudioPlayerFromSD::Update()
 {
     ButtonInput& input = ButtonInput::Instance();
@@ -35,9 +40,6 @@ void AudioPlayerFromSD::Update()
 }
 
 
-
-
-
 AudioPlayerFromBT::AudioPlayerFromBT()
  : m_AudioSrc( std::unique_ptr<BluetoothAudioSource>( new BluetoothAudioSource() )),
    m_AudioOut( std::unique_ptr<AudioDrvOut>( new AudioDrvOut() )),
@@ -48,6 +50,11 @@ AudioPlayerFromBT::AudioPlayerFromBT()
 
 AudioPlayerFromBT::~AudioPlayerFromBT()
 {}
+
+bool AudioPlayerFromBT::Initialize()
+{
+    return m_AudioSrc->Initialize(); 
+}
 
 void AudioPlayerFromBT::Update()
 {

@@ -35,19 +35,38 @@ extern "C"
 
 void MusicTask( void* param )
 {
-    s_AudioPlayer = std::unique_ptr<AudioPlayerFromBT>( new AudioPlayerFromBT() );
     ButtonInput& input = ButtonInput::Instance();
+    std::unique_ptr<AudioPlayerFromBT> btplayer = std::unique_ptr<AudioPlayerFromBT>( new AudioPlayerFromBT() );
+    std::unique_ptr<AudioPlayerFromSD> sdplayer;
+
+    bool is_initialize_ok = btplayer->Initialize();
+    if( !is_initialize_ok ){
+        goto MUSIC_TASK_FAILED;
+    }
+    s_AudioPlayer = std::move( btplayer );
     
     while( 1 ){
         if( input.ChangePlayerButtonPressed() ){
             if( s_PlayerType == PlayerType_BT ){
-                s_AudioPlayer = std::unique_ptr<AudioPlayerFromSD>( new AudioPlayerFromSD() );
+                sdplayer = std::unique_ptr<AudioPlayerFromSD>( new AudioPlayerFromSD() );
+                is_initialize_ok = sdplayer->Initialize();
+                if( !is_initialize_ok ){
+                    goto MUSIC_TASK_FAILED;
+                }
+
+                s_AudioPlayer = std::move( sdplayer );
                 s_PlayerType  = PlayerType_SDC;
             }
         }
 
         s_AudioPlayer->Update();
 
+        vTaskDelay( 1 );
+    }
+
+MUSIC_TASK_FAILED:
+    while( 1 ){
+        // 初期化に失敗して何もできない。リセットを待ち何もしない。
         vTaskDelay( 1 );
     }
 }

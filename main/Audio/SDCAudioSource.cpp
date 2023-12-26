@@ -50,3 +50,8 @@ void SDCAudioSource::NextEntry()
     m_PlayList.Next();
     m_FileReader.OpenFile( m_PlayList.Current() );
 }
+
+bool SDCAudioSource::IsGood() const
+{
+    return m_IsGood;
+}

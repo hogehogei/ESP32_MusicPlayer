@@ -20,6 +20,7 @@ public:
     
     bool IsEOF() const;
     void NextEntry();
+    bool IsGood() const;
 
 private:
 

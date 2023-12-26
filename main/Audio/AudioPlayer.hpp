@@ -27,6 +27,7 @@ public:
     AudioPlayerFromSD( const AudioPlayerFromSD& ) = delete;
     AudioPlayerFromSD& operator=( const AudioPlayerFromSD& ) = delete;
 
+    bool Initialize();
     virtual void Update() override;
 
 private:
@@ -55,6 +56,7 @@ public:
     AudioPlayerFromBT( const AudioPlayerFromBT& ) = delete;
     AudioPlayerFromBT& operator=( const AudioPlayerFromBT& ) = delete;
 
+    bool Initialize();
     virtual void Update() override;
 
 private:

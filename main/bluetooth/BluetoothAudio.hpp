@@ -24,7 +24,7 @@ public:
     BluetoothAudio( const BluetoothAudio& ) = delete;
     BluetoothAudio& operator=( const BluetoothAudio& ) = delete;
 
-    void Initialize();
+    bool Initialize();
     bool IsInitialized() const;
     void DeInitialize();
     static BluetoothAudio& Instance();

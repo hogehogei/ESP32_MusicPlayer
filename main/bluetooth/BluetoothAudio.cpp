@@ -27,25 +27,35 @@ BluetoothAudio::BluetoothAudio()
 BluetoothAudio::~BluetoothAudio()
 {}
 
-void BluetoothAudio::Initialize()
+bool BluetoothAudio::Initialize()
 {
     if( m_IsInitialized ){
-        return;
+        return true;
     }
 
+    esp_err_t result;
     esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
-	ESP_ERROR_CHECK( esp_bt_controller_init(&bt_cfg) );
-	ESP_ERROR_CHECK( esp_bt_controller_enable(ESP_BT_MODE_CLASSIC_BT) );
-	ESP_ERROR_CHECK( esp_bluedroid_init() );
-	ESP_ERROR_CHECK( esp_bluedroid_enable() );
+	result = esp_bt_controller_init(&bt_cfg);
 
-	/* create application task */
-    startBT_Task();
+    if( result == ESP_OK ){
+        result = esp_bt_controller_enable(ESP_BT_MODE_CLASSIC_BT);
+    }
+    if( result == ESP_OK ){
+        result = esp_bluedroid_init();
+    }
+    if( result == ESP_OK ){
+        result = esp_bluedroid_enable();
+    }
+    if( result == ESP_OK ){
+        /* create application task */
+        startBT_Task();
 
-	/* Bluetooth device name, connection mode and profile set up */
-    startBT_AVProtocols();
+        /* Bluetooth device name, connection mode and profile set up */
+        startBT_AVProtocols();
+    }
 
-    m_IsInitialized = true;
+    m_IsInitialized = (result == ESP_OK);
+    return result == ESP_OK;
 }
 
 bool BluetoothAudio::IsInitialized() const
