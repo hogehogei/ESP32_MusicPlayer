@@ -20,3 +20,9 @@ ESP-IDF v4.4 にてビルド確認。 esp32 wroom 32 (無印esp32) での設定�
   
 最適化有効にしないとBluetoothパケットドロップするので最適化必須、CPUクロックは160MHzで動作。<br>
 パーティションは partition.csv を参照する。
+
+ビルドコマンド<br>
+```
+$ cd main
+$ idf.py build
+```
