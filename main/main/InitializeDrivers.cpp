@@ -16,12 +16,12 @@ extern "C"
 
 void InitializeDrivers()
 {
-    // SDカードファイルシステム初期化
-    printf( "SDC FileSystem initialize.\n" );
-    FileSystem::Instance().Initialize();
     // VS1053 ドライバ初期化
     printf( "VS1053 driver initialize.\n" );
     VS1053_Drv::Instance().Initialize();
+    // SDカードファイルシステム初期化
+    printf( "SDC FileSystem initialize.\n" );
+    FileSystem::Instance().Initialize();
 
     esp_err_t err = nvs_flash_init();
     if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
