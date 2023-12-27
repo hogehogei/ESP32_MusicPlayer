@@ -12,12 +12,13 @@ ESP-IDF v4.4 にてビルド確認。 esp32 wroom 32 (無印esp32) での設定�
     - Bluetooth controller -> Bluetooth controller mode (BR/EDR Only)
     - Bluetooth Host -> (Bluedroid - Dual-mode)
     - Bluedroid Options ->
-        - [*] Classic Bluetooth)
+        - [*] Classic Bluetooth
         - [*] A2DP
         - [*] SPP
+- Component config -> ESP System Settings ->  Panic handler behaviour (Print registers and halt)
 - Serial flasher config -> Flash size (4MB)
 - Partition Table -> PartitionTable (custom partition table CSV)
-  
+
 最適化有効にしないとBluetoothパケットドロップするので最適化必須、CPUクロックは160MHzで動作。<br>
 パーティションは partition.csv を参照する。
 
