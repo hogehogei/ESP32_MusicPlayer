@@ -36,7 +36,7 @@ void BattVolt::Update()
     raw = adc1_get_raw( ADC1_CHANNEL_5 );
 
     // ADC1_CH5の電圧値を取得
-    voltage = esp_adc_cal_raw_to_voltage( raw, &m_ADC_Characteristics );
+    voltage = esp_adc_cal_raw_to_voltage( raw, &m_ADC_Characteristics ) * 2;
 
     double previous_millvolt = m_BattMillVolt;
     m_BattMillVolt = (1.0 - sk_LPF_Const) * static_cast<double>(voltage) + sk_LPF_Const * previous_millvolt;
